@@ -1,11 +1,11 @@
 // ============================================================
 // 工具栏组件
 // ============================================================
+import { useState } from 'react';
 import { useAppStore } from '../../store';
 import { importFromJsonFile, exportToJsonFile } from '../../utils/storage';
 import type { AnnotationMode } from '../../types';
-import { writeDataToField, getRowAllFields } from '../../utils/get_structured_data';
-import type { FieldData } from '../../utils/get_structured_data';
+import { parseFeishuUrl, fetchFeishuRecords } from '../../utils/feishu_open_api';
 import {
   MousePointer2,
   FileText,
@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Save,
   Check,
+  Link,
 } from 'lucide-react';
 
 const modeConfig: {
@@ -79,10 +80,77 @@ export default function Toolbar() {
     isFeishuEnv,
     feishuCurrentIndex,
     feishuRecordIds,
-    feishuTableId,
-    setFeishuState,
     handleSaveFeishuData,
+    handleNextFeishuRow,
+    handlePrevFeishuRow,
+    feishuAppId,
+    feishuAppSecret,
+    setFeishuOpenApiState,
   } = useAppStore();
+
+  const [url, setUrl] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleConnectOpenApi = async () => {
+    if (!url) {
+      showToast('请输入飞书多维表格链接');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { appToken, tableId } = parseFeishuUrl(url);
+      
+      showToast('正在获取数据...');
+      const records = await fetchFeishuRecords({ appId: feishuAppId, appSecret: feishuAppSecret, appToken, tableId });
+      
+      if (!records || records.length === 0) {
+        showToast('获取到 0 条数据，请检查链接或权限');
+        setLoading(false);
+        return;
+      }
+
+      const recordIds = records.map(r => r.record_id);
+      
+      setFeishuOpenApiState({
+        isOpenApiMode: true,
+        feishuAppToken: appToken,
+        feishuRecords: records,
+      });
+
+      // 复用原有的环境状态逻辑以适配上下题和保存功能
+      useAppStore.getState().setFeishuState({
+        isFeishuEnv: true,
+        feishuTableId: tableId,
+        feishuRecordIds: recordIds,
+        feishuCurrentIndex: 0,
+      });
+
+      // 初始化第一条数据
+      const firstRecord = records[0];
+      const outputJsonStr = firstRecord.fields['输出json'];
+      const inputJsonStr = firstRecord.fields['输入json'];
+      
+      let dataToParse = outputJsonStr || inputJsonStr;
+      if (dataToParse) {
+        try {
+          const parsed = JSON.parse(dataToParse);
+          loadExamData(parsed);
+        } catch (e) {
+          loadExamData({ images: [], labels: [] });
+        }
+      } else {
+        loadExamData({ images: [], labels: [] });
+      }
+
+      showToast(`连接成功，共获取 ${records.length} 条记录`);
+    } catch (e: any) {
+      console.error(e);
+      showToast(e.message || '连接失败，请检查配置');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleImport = async () => {
     try {
@@ -97,74 +165,6 @@ export default function Toolbar() {
   const handleExport = () => {
     exportToJsonFile(examData);
     showToast('已导出标注数据');
-  };
-
-  // 飞书相关：解析行数据
-  const processFeishuRowData = (data: FieldData[]) => {
-    const outputJsonField = data.find((f) => f.fieldName === '输出json');
-    const inputJsonField = data.find((f) => f.fieldName === '输入json');
-
-    let jsonDataToParse = null;
-    if (outputJsonField && outputJsonField.value) {
-      jsonDataToParse = outputJsonField.value;
-    } else if (inputJsonField && inputJsonField.value) {
-      jsonDataToParse = inputJsonField.value;
-    }
-
-    if (jsonDataToParse) {
-      try {
-        let structuredDataStr = '';
-        for (const item of jsonDataToParse) {
-          if (item.type === 'text' || item.type === 'url') {
-            structuredDataStr += item.text || '';
-          }
-        }
-        if (structuredDataStr.trim()) {
-          loadExamData(JSON.parse(structuredDataStr));
-        } else {
-          loadExamData({ images: [], labels: [] });
-        }
-      } catch (error) {
-        console.error('解析JSON出错', error);
-        loadExamData({ images: [], labels: [] });
-      }
-    } else {
-      loadExamData({ images: [], labels: [] });
-    }
-  };
-
-  // 上一行
-  const handlePrevRow = async () => {
-    if (feishuCurrentIndex > 0) {
-      const prevIndex = feishuCurrentIndex - 1;
-      const prevId = feishuRecordIds[prevIndex];
-      const res = await getRowAllFields({ tableId: feishuTableId, recordId: prevId, useCurrentSelection: false });
-      if (res.success && res.data) {
-        setFeishuState({ feishuCurrentIndex: prevIndex });
-        processFeishuRowData(res.data);
-      }
-    }
-  };
-
-  // 下一行
-  const handleNextRow = async () => {
-    if (feishuCurrentIndex < feishuRecordIds.length - 1) {
-      const nextIndex = feishuCurrentIndex + 1;
-      const nextId = feishuRecordIds[nextIndex];
-      const res = await getRowAllFields({ tableId: feishuTableId, recordId: nextId, useCurrentSelection: false });
-      if (res.success && res.data) {
-        setFeishuState({ feishuCurrentIndex: nextIndex });
-        processFeishuRowData(res.data);
-      }
-    }
-  };
-
-  // 保存数据
-  const handleSaveFeishuDataBtn = async (isComplete: boolean = false) => {
-    await handleSaveFeishuData(isComplete);
-    if (isComplete) {
-      handleNextRow();
-    }
   };
 
   return (
@@ -256,7 +256,7 @@ export default function Toolbar() {
           <div className="toolbar-zoom-controls">
             <button
               className="toolbar-icon-btn"
-              onClick={handlePrevRow}
+              onClick={handlePrevFeishuRow}
               disabled={feishuCurrentIndex <= 0}
               title="上一题"
             >
@@ -267,7 +267,7 @@ export default function Toolbar() {
             </span>
             <button
               className="toolbar-icon-btn"
-              onClick={handleNextRow}
+              onClick={handleNextFeishuRow}
               disabled={feishuCurrentIndex >= feishuRecordIds.length - 1}
               title="下一题"
             >
@@ -277,13 +277,13 @@ export default function Toolbar() {
 
           <div className="toolbar-divider" />
 
-          <button className="toolbar-action-btn" onClick={() => handleSaveFeishuDataBtn(false)}>
+          <button className="toolbar-action-btn" onClick={() => handleSaveFeishuData(false)}>
             <Save size={15} />
             <span>保存</span>
           </button>
           <button
             className="toolbar-action-btn toolbar-action-btn--primary"
-            onClick={() => handleSaveFeishuDataBtn(true)}
+            onClick={() => handleSaveFeishuData(true)}
           >
             <Check size={15} />
             <span>完成</span>
@@ -291,6 +291,29 @@ export default function Toolbar() {
         </div>
       ) : (
         <div className="toolbar-group">
+          <div className="flex items-center bg-slate-800/50 border border-slate-700/60 rounded-md overflow-hidden h-8 mr-2 transition-all focus-within:border-blue-500/50 focus-within:bg-slate-800">
+            <div className="pl-2.5 text-slate-400">
+              <Link size={14} />
+            </div>
+            <input
+              type="text"
+              placeholder="输入飞书多维表格链接进行直连..."
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              className="bg-transparent text-[13px] text-slate-200 px-2 w-[240px] focus:outline-none placeholder:text-slate-500"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleConnectOpenApi();
+              }}
+            />
+            <button
+              className="px-3.5 h-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[13px] font-medium transition-colors disabled:opacity-50 border-l border-slate-700/60"
+              onClick={handleConnectOpenApi}
+              disabled={loading || !url}
+            >
+              {loading ? '连接中...' : '连接'}
+            </button>
+          </div>
+          
           <button className="toolbar-action-btn" onClick={handleImport}>
             <Upload size={15} />
             <span>导入</span>

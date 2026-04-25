@@ -8,6 +8,7 @@ import AnnotationCanvas from './components/canvas/AnnotationCanvas';
 import AnnotationPanel from './components/panel/AnnotationPanel';
 import { watchRowAllFields, getTableRecordIds } from './utils/get_structured_data';
 import type { FieldData, RowData } from './utils/get_structured_data';
+import './utils/feishu_open_api';
 
 function App() {
   const { initFromStorage, toastMessage, clearToast, showPanel, loadExamData, setFeishuState, isFeishuEnv } = useAppStore();

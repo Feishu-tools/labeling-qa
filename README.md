@@ -1,73 +1,72 @@
-# React + TypeScript + Vite
+# Labeling QA - 智能试卷标注工具
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## 📖 项目介绍
 
-Currently, two official plugins are available:
+**Labeling QA** 是一个专为教育场景（如试卷、作业、讲义等）打造的高效、智能的图片标注工具。它支持对多页图片进行连续标注，能够清晰地将试卷中的内容划分为**题目 (Question)**、**答案 (Answer)** 和 **批改痕迹 (Correction)**，并支持多维度的逻辑分组。
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+本系统不仅支持本地 JSON 数据的导入与导出，还深度整合了 **飞书多维表格 (Feishu Bitable)**，支持作为“飞书内嵌小组件”运行，或直接通过 OpenAPI 模式直连飞书表格，实现云端数据的一键读取、实时保存和题目流转。
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## ✨ 核心特性
 
-## Expanding the ESLint configuration
+- 🎯 **精细化多边形标注**：通过“点击选点、自动闭合”的方式，精准框选不规则的文本或图形。
+- ⌨️ **极速快捷键工作流**：专为高频标注员设计的纯键盘驱动模式，解放鼠标频繁切换工具的繁琐。
+- 📦 **智能分组机制**：同一个题目下的“题干、答案、批改”会自动绑定为一组，鼠标悬停时同组高亮，逻辑清晰。
+- 🔄 **飞书生态无缝集成**：
+  - **组件模式**：直接嵌入飞书文档/多维表格，点击表格行自动渲染数据。
+  - **OpenAPI 模式**：通过配置 App ID 和多维表格 URL，跨端直连飞书获取最新试题。
+- 🖼️ **强大的画布交互**：支持中键无限平移、原生滚轮精准缩放、图片任意角度旋转，以及跨页的自由拖拽排序。
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 🎮 标注操作指南 (快捷键大全)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+本工具的核心设计理念是**“快捷键驱动”**，熟练掌握以下快捷键可将标注效率提升 300%。
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 1. 核心标注流程
+- <kbd>Space</kbd> **创建新题**：在开始标注一道全新题目**前**，按下空格键。此时系统会自动为您创建一个独立的分组。（*注：在飞书模式下按空格还会自动触发一次当前数据的静默保存*）
+- <kbd>1</kbd> **标注“题目”**：按住 `1` 键并在目标区域**连续点击鼠标**绘制多边形，松开 `1` 键自动闭合图形。
+- <kbd>2</kbd> **标注“答案”**：按住 `2` 键进行绘制，该框会自动归属于当前选中的题组，并标记为绿色。
+- <kbd>3</kbd> **标注“批改”**：按住 `3` 键进行绘制，该框会自动归属于当前选中的题组，并标记为橙色。
+- <kbd>S</kbd> **保存并下一题**（仅飞书模式）：完成当前行/当前题的标注后，按下 `S` 键自动保存数据并翻到下一条记录。
+
+### 2. 画布与视图控制
+- **画布平移**：在画布任意位置**按住鼠标中键**拖动，或在灰色背景处按住左键拖动。
+- **画布缩放**：按住 <kbd>Ctrl</kbd> (Windows) 或 <kbd>Command</kbd> (Mac) 键，同时滚动鼠标滚轮。
+- <kbd>E</kbd> **旋转图片**：鼠标悬停在某张图片上，按下 `E` 键可将该图片顺时针旋转 90 度。
+- **图片排序**：直接按住图片本体并拖动，即可重新调整图片页码的顺序。
+
+### 3. 编辑与撤销
+- <kbd>R</kbd> **撤销 (Undo)**：撤销上一步的绘制或删除操作。
+- <kbd>Enter</kbd> / <kbd>Esc</kbd>：手动完成当前多边形的绘制 / 取消当前正在绘制的多边形。
+
+---
+
+## 🔗 飞书直连配置 (OpenAPI 模式)
+
+如果您不在飞书客户端内，也可以通过浏览器直接使用并连接飞书多维表格。
+
+1. 点击顶部工具栏左侧的输入框。
+2. 粘贴飞书多维表格的完整 URL，例如：`https://gaotuedu.feishu.cn/base/xxxx?table=xxxx`
+3. 按下 <kbd>Enter</kbd> 或点击“连接”。
+4. 连接成功后，您可以使用顶部的 `<` `>` 按钮实时从飞书云端拉取题目数据，标注完成后按 `S` 自动写回云端。
+
+> *注：系统已内置合法的 `app_id` 和 `app_secret`，并通过 Vite 代理解决了跨域问题，确保直接粘贴链接即可使用。*
+
+---
+
+## 🛠️ 本地开发与部署
+
+```bash
+# 1. 安装依赖
+npm install
+
+# 2. 启动本地开发服务器
+npm run dev
+
+# 3. 生产环境构建打包
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+构建完成后的产物位于 `dist` 目录中，可直接上传至飞书开发者后台作为小组件（Block）发布，或部署至任意静态服务器（如 Nginx, Vercel, Netlify）。

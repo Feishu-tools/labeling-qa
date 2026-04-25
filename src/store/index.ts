@@ -13,6 +13,7 @@ import type {
 import { saveToLocalStorage, loadFromLocalStorage, generateId } from '../utils/storage';
 import { writeDataToField, getRowAllFields } from '../utils/get_structured_data';
 import type { FieldData } from '../utils/get_structured_data';
+import { updateFeishuRecord, getFeishuRecord } from '../utils/feishu_open_api';
 
 interface AppState {
   // ---- 数据 ----
@@ -46,10 +47,18 @@ interface AppState {
   feishuCurrentIndex: number;
   feishuTableId: string;
 
+  // ---- 飞书 OpenAPI 状态 ----
+  isOpenApiMode: boolean;
+  feishuAppId: string;
+  feishuAppSecret: string;
+  feishuAppToken: string;
+  feishuRecords: any[]; // 存储通过 OpenAPI 获取的记录列表
+
   // ---- Actions ----
   loadExamData: (data: ExamData) => void;
   initFromStorage: () => boolean;
   setFeishuState: (state: Partial<{ isFeishuEnv: boolean, feishuRecordIds: string[], feishuCurrentIndex: number, feishuTableId: string }>) => void;
+  setFeishuOpenApiState: (state: Partial<{ isOpenApiMode: boolean, feishuAppId: string, feishuAppSecret: string, feishuAppToken: string, feishuRecords: any[] }>) => void;
 
   setAnnotationMode: (mode: AnnotationMode) => void;
   setActiveHotkey: (key: '1' | '2' | '3' | '`' | null) => void;
@@ -88,6 +97,8 @@ interface AppState {
   
   // 飞书保存
   handleSaveFeishuData: (isComplete?: boolean) => Promise<void>;
+  handleNextFeishuRow: () => Promise<void>;
+  handlePrevFeishuRow: () => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -119,6 +130,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   feishuCurrentIndex: -1,
   feishuTableId: '',
 
+  isOpenApiMode: false,
+  feishuAppId: 'cli_a801922b07325013',
+  feishuAppSecret: 'saBeFOLLaEay7Z2wDgtwxfl46RYfWNEs',
+  feishuAppToken: '',
+  feishuRecords: [],
+
   // ---- Actions ----
 
   loadExamData: (data) => {
@@ -136,6 +153,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setFeishuState: (state) => set(state),
+  setFeishuOpenApiState: (state) => set(state),
 
   setAnnotationMode: (mode) => set({ annotationMode: mode }),
   
@@ -477,30 +495,193 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   handleSaveFeishuData: async (isComplete: boolean = false) => {
-    const { feishuRecordIds, feishuCurrentIndex, feishuTableId, examData, showToast } = get();
+    // 保存前，先完成当前可能的绘制动作，并清理选中状态（模拟一次空格操作），避免最后一笔未结束或选中状态污染下一题
+    const state = get();
+    if (state.isDrawing) {
+      state.finishDrawing();
+    }
+    set({
+      selectedQuestionId: null,
+      selectedAnnotationId: null,
+      selectedAnnotationType: null,
+    });
+
+    const { feishuRecordIds, feishuCurrentIndex, feishuTableId, examData, showToast, isOpenApiMode, feishuAppId, feishuAppSecret, feishuAppToken } = get();
     const currentId = feishuRecordIds[feishuCurrentIndex];
     if (!currentId || !feishuTableId) return;
 
     try {
       showToast('正在保存...');
-      await writeDataToField(JSON.stringify(examData, null, 4), {
-        fieldName: '输出json',
-        useCurrentSelection: false,
-        tableId: feishuTableId,
-        recordId: currentId,
-      });
+      
+      if (isOpenApiMode) {
+        // 使用 OpenAPI 保存
+        await updateFeishuRecord(
+          { appId: feishuAppId, appSecret: feishuAppSecret, appToken: feishuAppToken, tableId: feishuTableId },
+          currentId,
+          {
+            '输出json': JSON.stringify(examData, null, 4),
+            '标注状态': isComplete ? '已标注' : '标注中',
+          }
+        );
+      } else {
+        // 使用小组件 SDK 保存
+        await writeDataToField(JSON.stringify(examData, null, 4), {
+          fieldName: '输出json',
+          useCurrentSelection: false,
+          tableId: feishuTableId,
+          recordId: currentId,
+        });
 
-      await writeDataToField(isComplete ? '已标注' : '标注中', {
-        fieldName: '标注状态',
-        useCurrentSelection: false,
-        tableId: feishuTableId,
-        recordId: currentId,
-      });
+        await writeDataToField(isComplete ? '已标注' : '标注中', {
+          fieldName: '标注状态',
+          useCurrentSelection: false,
+          tableId: feishuTableId,
+          recordId: currentId,
+        });
+      }
 
       showToast(isComplete ? '保存成功并标记完成' : '保存成功');
+      
+      if (isComplete) {
+        await get().handleNextFeishuRow();
+      }
     } catch (e) {
       console.error(e);
       showToast('保存失败');
+    }
+  },
+
+  handleNextFeishuRow: async () => {
+    const { feishuCurrentIndex, feishuRecordIds, feishuTableId, isOpenApiMode, feishuAppId, feishuAppSecret, feishuAppToken, setFeishuState, loadExamData } = get();
+    if (feishuCurrentIndex < feishuRecordIds.length - 1) {
+      const nextIndex = feishuCurrentIndex + 1;
+      
+      const parseFeishuJson = (jsonDataToParse: any) => {
+        if (jsonDataToParse) {
+          try {
+            let structuredDataStr = '';
+            if (typeof jsonDataToParse === 'string') {
+              structuredDataStr = jsonDataToParse;
+            } else if (Array.isArray(jsonDataToParse)) {
+              for (const item of jsonDataToParse) {
+                if (item.type === 'text' || item.type === 'url') {
+                  structuredDataStr += item.text || '';
+                }
+              }
+            }
+            
+            if (structuredDataStr.trim()) {
+              loadExamData(JSON.parse(structuredDataStr));
+            } else {
+              loadExamData({ images: [], labels: [] });
+            }
+          } catch (error) {
+            console.error('解析JSON出错', error);
+            loadExamData({ images: [], labels: [] });
+          }
+        } else {
+          loadExamData({ images: [], labels: [] });
+        }
+      };
+
+      if (isOpenApiMode) {
+        setFeishuState({ feishuCurrentIndex: nextIndex });
+        const nextId = feishuRecordIds[nextIndex];
+        try {
+          const record = await getFeishuRecord(
+            { appId: feishuAppId, appSecret: feishuAppSecret, appToken: feishuAppToken, tableId: feishuTableId },
+            nextId
+          );
+          if (record && record.fields) {
+            parseFeishuJson(record.fields['输出json'] || record.fields['输入json']);
+          }
+        } catch (e) {
+          console.error('获取飞书最新行数据失败', e);
+          get().showToast('获取行数据失败');
+        }
+      } else {
+        const nextId = feishuRecordIds[nextIndex];
+        const res = await getRowAllFields({ tableId: feishuTableId, recordId: nextId, useCurrentSelection: false });
+        if (res.success && res.data) {
+          setFeishuState({ feishuCurrentIndex: nextIndex });
+          const outputJsonField = res.data.find((f: FieldData) => f.fieldName === '输出json');
+          const inputJsonField = res.data.find((f: FieldData) => f.fieldName === '输入json');
+          let jsonDataToParse = null;
+          if (outputJsonField && outputJsonField.value) {
+            jsonDataToParse = outputJsonField.value;
+          } else if (inputJsonField && inputJsonField.value) {
+            jsonDataToParse = inputJsonField.value;
+          }
+          parseFeishuJson(jsonDataToParse);
+        }
+      }
+    }
+  },
+
+  handlePrevFeishuRow: async () => {
+    const { feishuCurrentIndex, feishuRecordIds, feishuTableId, isOpenApiMode, feishuAppId, feishuAppSecret, feishuAppToken, setFeishuState, loadExamData } = get();
+    if (feishuCurrentIndex > 0) {
+      const prevIndex = feishuCurrentIndex - 1;
+      
+      const parseFeishuJson = (jsonDataToParse: any) => {
+        if (jsonDataToParse) {
+          try {
+            let structuredDataStr = '';
+            if (typeof jsonDataToParse === 'string') {
+              structuredDataStr = jsonDataToParse;
+            } else if (Array.isArray(jsonDataToParse)) {
+              for (const item of jsonDataToParse) {
+                if (item.type === 'text' || item.type === 'url') {
+                  structuredDataStr += item.text || '';
+                }
+              }
+            }
+            
+            if (structuredDataStr.trim()) {
+              loadExamData(JSON.parse(structuredDataStr));
+            } else {
+              loadExamData({ images: [], labels: [] });
+            }
+          } catch (error) {
+            console.error('解析JSON出错', error);
+            loadExamData({ images: [], labels: [] });
+          }
+        } else {
+          loadExamData({ images: [], labels: [] });
+        }
+      };
+
+      if (isOpenApiMode) {
+        setFeishuState({ feishuCurrentIndex: prevIndex });
+        const prevId = feishuRecordIds[prevIndex];
+        try {
+          const record = await getFeishuRecord(
+            { appId: feishuAppId, appSecret: feishuAppSecret, appToken: feishuAppToken, tableId: feishuTableId },
+            prevId
+          );
+          if (record && record.fields) {
+            parseFeishuJson(record.fields['输出json'] || record.fields['输入json']);
+          }
+        } catch (e) {
+          console.error('获取飞书最新行数据失败', e);
+          get().showToast('获取行数据失败');
+        }
+      } else {
+        const prevId = feishuRecordIds[prevIndex];
+        const res = await getRowAllFields({ tableId: feishuTableId, recordId: prevId, useCurrentSelection: false });
+        if (res.success && res.data) {
+          setFeishuState({ feishuCurrentIndex: prevIndex });
+          const outputJsonField = res.data.find((f: FieldData) => f.fieldName === '输出json');
+          const inputJsonField = res.data.find((f: FieldData) => f.fieldName === '输入json');
+          let jsonDataToParse = null;
+          if (outputJsonField && outputJsonField.value) {
+            jsonDataToParse = outputJsonField.value;
+          } else if (inputJsonField && inputJsonField.value) {
+            jsonDataToParse = inputJsonField.value;
+          }
+          parseFeishuJson(jsonDataToParse);
+        }
+      }
     }
   },
 }));

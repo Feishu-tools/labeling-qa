@@ -56,18 +56,18 @@ export const ANNOTATION_COLORS: Record<
   { fill: string; stroke: string; label: string }
 > = {
   question: {
-    fill: 'rgba(59, 130, 246, 0.25)',
-    stroke: 'rgba(59, 130, 246, 0.85)',
+    fill: 'rgba(124, 174, 255, 0.5)',
+    stroke: 'rgba(123, 170, 248, 1)',
     label: '题目',
   },
   answer: {
-    fill: 'rgba(34, 197, 94, 0.25)',
-    stroke: 'rgba(34, 197, 94, 0.85)',
+    fill: 'rgba(150, 246, 185, 0.26)',
+    stroke: 'rgba(131, 255, 177, 1)',
     label: '答案',
   },
   correction: {
-    fill: 'rgba(249, 115, 22, 0.25)',
-    stroke: 'rgba(249, 115, 22, 0.85)',
+    fill: 'rgba(252, 191, 148, 0.5)',
+    stroke: 'rgba(241, 175, 128, 1)',
     label: '批改',
   },
 };
@@ -78,15 +78,15 @@ export const ANNOTATION_COLORS_SELECTED: Record<
   { fill: string; stroke: string }
 > = {
   question: {
-    fill: 'rgba(59, 130, 246, 0.50)',
-    stroke: 'rgba(59, 130, 246, 1)',
+    fill: 'rgba(161, 197, 255, 0.2)',
+    stroke: 'rgba(122, 170, 249, 0.6)',
   },
   answer: {
-    fill: 'rgba(34, 197, 94, 0.50)',
-    stroke: 'rgba(34, 197, 94, 1)',
+    fill: 'rgba(172, 243, 198, 0.23)',
+    stroke: 'rgba(154, 248, 189, 0.53)',
   },
   correction: {
-    fill: 'rgba(249, 115, 22, 0.50)',
-    stroke: 'rgba(249, 115, 22, 1)',
+    fill: 'rgba(252, 191, 148, 0.26)',
+    stroke: 'rgba(252, 198, 160, 0.55)',
   },
 };

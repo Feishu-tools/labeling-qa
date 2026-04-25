@@ -22,9 +22,6 @@ import type { ExamImage } from '../../types';
 import { FileUp } from 'lucide-react';
 import { importFromJsonFile } from '../../utils/storage';
 
-import { getRowAllFields } from '../../utils/get_structured_data';
-import type { FieldData } from '../../utils/get_structured_data';
-
 /** 可排序的页面包装器 */
 function SortablePageItem({ image, index }: { image: ExamImage; index: number }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -63,10 +60,6 @@ export default function AnnotationCanvas() {
     undo,
     isFeishuEnv,
     handleSaveFeishuData,
-    feishuCurrentIndex,
-    feishuRecordIds,
-    feishuTableId,
-    setFeishuState,
   } = useAppStore();
 
   const sensors = useSensors(
@@ -96,7 +89,10 @@ export default function AnnotationCanvas() {
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     // 中键点击，或者点击在空白背景上时，开始平移
     const target = e.target as HTMLElement;
-    if (e.button === 1 || target.classList.contains('canvas-scroll-container') || target.classList.contains('canvas-pages-row')) {
+    // 确保在 SortableContext 内部或外部点击背景都能触发平移
+    const isBackground = target.closest('.page-image-wrapper') === null;
+    
+    if (e.button === 1 || isBackground) {
       setIsPanning(true);
       e.currentTarget.setPointerCapture(e.pointerId);
     }
@@ -115,53 +111,6 @@ export default function AnnotationCanvas() {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
   }, [isPanning]);
-
-  // 飞书相关：解析行数据
-  const processFeishuRowData = useCallback((data: FieldData[]) => {
-    const outputJsonField = data.find((f) => f.fieldName === '输出json');
-    const inputJsonField = data.find((f) => f.fieldName === '输入json');
-
-    let jsonDataToParse = null;
-    if (outputJsonField && outputJsonField.value) {
-      jsonDataToParse = outputJsonField.value;
-    } else if (inputJsonField && inputJsonField.value) {
-      jsonDataToParse = inputJsonField.value;
-    }
-
-    if (jsonDataToParse) {
-      try {
-        let structuredDataStr = '';
-        for (const item of jsonDataToParse) {
-          if (item.type === 'text' || item.type === 'url') {
-            structuredDataStr += item.text || '';
-          }
-        }
-        if (structuredDataStr.trim()) {
-          loadExamData(JSON.parse(structuredDataStr));
-        } else {
-          loadExamData({ images: [], labels: [] });
-        }
-      } catch (error) {
-        console.error('解析JSON出错', error);
-        loadExamData({ images: [], labels: [] });
-      }
-    } else {
-      loadExamData({ images: [], labels: [] });
-    }
-  }, [loadExamData]);
-
-  // 下一行
-  const handleNextRow = useCallback(async () => {
-    if (feishuCurrentIndex < feishuRecordIds.length - 1) {
-      const nextIndex = feishuCurrentIndex + 1;
-      const nextId = feishuRecordIds[nextIndex];
-      const res = await getRowAllFields({ tableId: feishuTableId, recordId: nextId, useCurrentSelection: false });
-      if (res.success && res.data) {
-        setFeishuState({ feishuCurrentIndex: nextIndex });
-        processFeishuRowData(res.data);
-      }
-    }
-  }, [feishuCurrentIndex, feishuRecordIds, feishuTableId, setFeishuState, processFeishuRowData]);
 
   // 原生滚轮缩放监听
   useEffect(() => {
@@ -183,7 +132,7 @@ export default function AnnotationCanvas() {
     return () => {
       container.removeEventListener('wheel', handleWheel);
     };
-  }, []);
+  }, [examData.images.length]);
 
   // 全局事件监听：处理鼠标松开、取消绘制及快捷键
   useEffect(() => {
@@ -206,10 +155,8 @@ export default function AnnotationCanvas() {
         setLocalActiveKey(keyStr);
       }
       
-      if (keyStr === 's' && isFeishuEnv) {
-        handleSaveFeishuData(true).then(() => {
-          handleNextRow();
-        });
+      if (keyStr === 's' && (isFeishuEnv || useAppStore.getState().isOpenApiMode)) {
+        handleSaveFeishuData(true);
         return;
       }
       if (e.key === 'Control' || e.key === 'Meta') {
@@ -221,6 +168,10 @@ export default function AnnotationCanvas() {
         const state = useAppStore.getState();
         if (!state.isDrawing) {
           state.prepareNewQuestion();
+          // 如果在飞书环境下或者 OpenAPI 模式下，创建新题时触发自动保存（不标记为完成，仅同步数据）
+          if (state.isFeishuEnv || state.isOpenApiMode) {
+            state.handleSaveFeishuData(false);
+          }
         }
         return;
       }
@@ -325,7 +276,6 @@ export default function AnnotationCanvas() {
     undo,
     isFeishuEnv,
     handleSaveFeishuData,
-    handleNextRow,
   ]);
 
   const handleImport = async () => {
@@ -366,7 +316,7 @@ export default function AnnotationCanvas() {
         <div className={`hotkey-item ${activeKey === '3' ? 'active' : ''}`}><kbd>3</kbd> <span className="text-orange-400">批改</span></div>
         <div className={`hotkey-item ${activeKey === 'e' ? 'active' : ''}`}><kbd>E</kbd> <span>旋转</span></div>
         <div className={`hotkey-item ${activeKey === 'r' ? 'active' : ''}`}><kbd>R</kbd> <span>撤销</span></div>
-        {isFeishuEnv && (
+        {(isFeishuEnv || useAppStore.getState().isOpenApiMode) && (
           <div className={`hotkey-item ${activeKey === 's' ? 'active' : ''}`}><kbd>S</kbd> <span>保存并下一题</span></div>
         )}
       </div>
