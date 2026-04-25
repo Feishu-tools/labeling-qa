@@ -45,7 +45,7 @@ function SortablePageItem({ image, index }: { image: ExamImage; index: number })
 export default function AnnotationCanvas() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [activeKey, setLocalActiveKey] = useState<string | null>(null); // 用于提示组件的视觉高亮
-  const { examData, zoom, reorderImages, isDrawing, finishDrawing, cancelDrawing, loadExamData, showToast, setActiveHotkey, setAnnotationMode, setControlPressed, isControlPressed, undo } = useAppStore();
+  const { examData, zoom, reorderImages, isDrawing, finishDrawing, cancelDrawing, loadExamData, showToast, setActiveHotkey, setAnnotationMode, setControlPressed, undo } = useAppStore();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -68,6 +68,53 @@ export default function AnnotationCanvas() {
     },
     [examData.images, reorderImages]
   );
+
+  // 鼠标拖拽平移画布
+  const [isPanning, setIsPanning] = useState(false);
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // 中键点击，或者点击在空白背景上时，开始平移
+    const target = e.target as HTMLElement;
+    if (e.button === 1 || target.classList.contains('canvas-scroll-container') || target.classList.contains('canvas-pages-row')) {
+      setIsPanning(true);
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+  }, []);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (isPanning && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop -= e.movementY;
+      scrollContainerRef.current.scrollLeft -= e.movementX;
+    }
+  }, [isPanning]);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (isPanning) {
+      setIsPanning(false);
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  }, [isPanning]);
+
+  // 原生滚轮缩放监听
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const state = useAppStore.getState();
+        // 根据滚轮方向调整缩放，步长 0.05
+        const newZoom = Math.max(0.1, Math.min(5, state.zoom - e.deltaY * 0.005));
+        state.setZoom(newZoom);
+      }
+    };
+
+    // { passive: false } 允许 e.preventDefault() 阻止默认的网页缩放
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
 
   // 全局事件监听：处理鼠标松开、取消绘制及快捷键
   useEffect(() => {
@@ -237,8 +284,12 @@ export default function AnnotationCanvas() {
       </div>
 
       <div
-        className="canvas-scroll-container"
+        className={`canvas-scroll-container ${isPanning ? 'panning' : ''}`}
         ref={scrollContainerRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
       >
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext
@@ -249,8 +300,8 @@ export default function AnnotationCanvas() {
               className="canvas-pages-row"
               style={{
                 transform: `scale(${zoom})`,
-                transformOrigin: 'top center',
-                transition: 'transform 0.2s ease-out'
+                transformOrigin: 'center center',
+                transition: 'transform 0.15s ease-out'
               }}
             >
               {examData.images.map((image, index) => (
