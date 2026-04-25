@@ -30,18 +30,20 @@ export default function PageImage({ image, index }: PageImageProps) {
     annotationMode,
     isDrawing,
     currentPoints,
+    hoverPoint,
     drawingImageId,
     selectedAnnotationId,
     selectedQuestionId,
     hoveredAnnotationId,
-    activeHotkey,
     startDrawing,
     addDrawingPoint,
+    updateHoverPoint,
     finishDrawing,
     rotateImage,
     selectAnnotation,
     setHoveredAnnotation,
     setHoveredImage,
+    setAnnotationMode,
   } = useAppStore();
 
   // 获取图片实际渲染尺寸
@@ -84,20 +86,23 @@ export default function PageImage({ image, index }: PageImageProps) {
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
       if (e.button !== 0) return;
-      if (activeHotkey) return; // 热键模式下忽略鼠标按下，避免冲突
       
-      // 只有在画图模式下点击空白处才开始画图
+      // 只有在画图模式下点击空白处才开始画图或加点
       if (annotationMode !== 'select') {
         try {
           e.currentTarget.setPointerCapture(e.pointerId);
         } catch (e) {}
         const point = getImageCoords(e);
         if (point) {
-          startDrawing(image.id, point);
+          if (!isDrawing) {
+            startDrawing(image.id, point);
+          } else if (drawingImageId === image.id) {
+            addDrawingPoint(point);
+          }
         }
       }
     },
-    [getImageCoords, image.id, startDrawing, activeHotkey, annotationMode]
+    [getImageCoords, image.id, isDrawing, drawingImageId, startDrawing, addDrawingPoint, annotationMode]
   );
 
   const handlePointerMove = useCallback(
@@ -105,28 +110,21 @@ export default function PageImage({ image, index }: PageImageProps) {
       const point = getImageCoords(e);
       if (!point) return;
 
-      // 如果按住了热键，并且还没开始画，此时移动鼠标就自动开始画！
-      if (activeHotkey && !isDrawing) {
-        startDrawing(image.id, point);
-        return;
-      }
-
       if (!isDrawing || drawingImageId !== image.id) return;
-      addDrawingPoint(point);
+      updateHoverPoint(point);
     },
-    [isDrawing, drawingImageId, image.id, getImageCoords, addDrawingPoint, activeHotkey, startDrawing]
+    [isDrawing, drawingImageId, image.id, getImageCoords, updateHoverPoint]
   );
 
-  const handlePointerUp = useCallback(
-    (e: React.PointerEvent<SVGSVGElement>) => {
-      if (!isDrawing || drawingImageId !== image.id) return;
-      if (activeHotkey) return; // 如果在使用热键模式，鼠标松开不应该结束绘制，必须等热键松开
-      try {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      } catch (err) {}
-      finishDrawing();
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      if (isDrawing && drawingImageId === image.id) {
+        e.stopPropagation();
+        finishDrawing();
+        setAnnotationMode('select');
+      }
     },
-    [isDrawing, drawingImageId, image.id, finishDrawing, activeHotkey]
+    [isDrawing, drawingImageId, image.id, finishDrawing, setAnnotationMode]
   );
 
   // 收集当前页面的所有 polygon
@@ -252,8 +250,7 @@ export default function PageImage({ image, index }: PageImageProps) {
               preserveAspectRatio="none"
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerCancel={handlePointerUp}
+              onDoubleClick={handleDoubleClick}
               style={{
                 touchAction: 'none',
                 cursor: isDrawing ? getCustomCursor(annotationMode) : 'default',
@@ -345,9 +342,9 @@ export default function PageImage({ image, index }: PageImageProps) {
               })}
 
               {/* 正在绘制的 polygon */}
-              {isDrawing && drawingImageId === image.id && currentPoints.length > 1 && (
+              {isDrawing && drawingImageId === image.id && currentPoints.length > 0 && (
                 <path
-                  d={polygonToSvgPath(currentPoints)}
+                  d={polygonToSvgPath(hoverPoint ? [...currentPoints, hoverPoint] : currentPoints)}
                   fill={
                     ANNOTATION_COLORS[
                       annotationMode as 'question' | 'answer' | 'correction'
@@ -366,6 +363,20 @@ export default function PageImage({ image, index }: PageImageProps) {
                   style={{ pointerEvents: 'none' }}
                 />
               )}
+              {/* 绘制中的顶点提示 */}
+              {isDrawing && drawingImageId === image.id && currentPoints.map((pt, i) => (
+                <circle
+                  key={i}
+                  cx={pt[0]}
+                  cy={pt[1]}
+                  r={3}
+                  fill="white"
+                  stroke={ANNOTATION_COLORS[annotationMode as 'question' | 'answer' | 'correction']?.stroke || '#666'}
+                  strokeWidth={2}
+                  vectorEffect="non-scaling-stroke"
+                  style={{ pointerEvents: 'none' }}
+                />
+              ))}
             </svg>
           )}
         </div>

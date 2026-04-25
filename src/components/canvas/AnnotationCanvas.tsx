@@ -98,12 +98,7 @@ export default function AnnotationCanvas() {
   // 全局事件监听：处理鼠标松开、取消绘制及快捷键
   useEffect(() => {
     const handleGlobalMouseUp = () => {
-      const state = useAppStore.getState();
-      // 如果没有按住快捷键，则鼠标松开结束绘制
-      if (state.isDrawing && !state.activeHotkey) {
-        state.finishDrawing();
-        state.setAnnotationMode('select');
-      }
+      // 移除原有的自动完成绘制逻辑，现在由用户手动回车或双击完成
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -127,6 +122,14 @@ export default function AnnotationCanvas() {
 
       if (e.key === 'Escape') {
         cancelDrawing();
+        setAnnotationMode('select');
+      }
+      if (e.key === 'Enter') {
+        const state = useAppStore.getState();
+        if (state.isDrawing) {
+          state.finishDrawing();
+          state.setAnnotationMode('select');
+        }
       }
       if (e.key === 'r' || e.key === 'R') {
         undo();
@@ -139,15 +142,31 @@ export default function AnnotationCanvas() {
         }
         return;
       }
+      const state = useAppStore.getState();
       if (e.key === '1') {
-        setActiveHotkey('1');
-        setAnnotationMode('question');
+        if (state.activeHotkey !== '1') {
+          setActiveHotkey('1');
+          setAnnotationMode('question');
+          if (state.hoveredImageId) {
+            state.startDrawing(state.hoveredImageId);
+          }
+        }
       } else if (e.key === '2') {
-        setActiveHotkey('2');
-        setAnnotationMode('answer');
+        if (state.activeHotkey !== '2') {
+          setActiveHotkey('2');
+          setAnnotationMode('answer');
+          if (state.hoveredImageId) {
+            state.startDrawing(state.hoveredImageId);
+          }
+        }
       } else if (e.key === '3') {
-        setActiveHotkey('3');
-        setAnnotationMode('correction');
+        if (state.activeHotkey !== '3') {
+          setActiveHotkey('3');
+          setAnnotationMode('correction');
+          if (state.hoveredImageId) {
+            state.startDrawing(state.hoveredImageId);
+          }
+        }
       } else if (e.key === '`' || e.key === '~') {
         setActiveHotkey(null);
         setAnnotationMode('select');
@@ -166,7 +185,7 @@ export default function AnnotationCanvas() {
 
       if (e.key === '1' || e.key === '2' || e.key === '3') {
         const state = useAppStore.getState();
-        // 松开快捷键时结束绘制
+        // 松开 1/2/3 时，自动完成绘制并闭合多边形
         if (state.isDrawing) {
           state.finishDrawing();
         }

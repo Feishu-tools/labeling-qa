@@ -11,7 +11,6 @@ import type {
   AnnotationLocation,
 } from '../types';
 import { saveToLocalStorage, loadFromLocalStorage, generateId } from '../utils/storage';
-import { simplifyPolygon } from '../utils/geometry';
 
 interface AppState {
   // ---- 数据 ----
@@ -34,6 +33,7 @@ interface AppState {
   activeHotkey: '1' | '2' | '3' | '`' | null; // 记录当前按下的热键
   isControlPressed: boolean; // 是否按下了 Control 键
   currentPoints: Point[];
+  hoverPoint: Point | null; // 记录当前鼠标悬停的坐标点
   drawingImageId: string | null;
 
   // ---- Actions ----
@@ -52,8 +52,9 @@ interface AppState {
   clearToast: () => void;
 
   // 绘制
-  startDrawing: (imageId: string, point: Point) => void;
+  startDrawing: (imageId: string, point?: Point) => void;
   addDrawingPoint: (point: Point) => void;
+  updateHoverPoint: (point: Point) => void; // 增加更新悬停点的动作
   finishDrawing: () => void;
   cancelDrawing: () => void;
   prepareNewQuestion: () => void;
@@ -92,6 +93,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeHotkey: null,
   isControlPressed: false,
   currentPoints: [],
+  hoverPoint: null,
   drawingImageId: null,
 
   // ---- Actions ----
@@ -173,7 +175,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set({
       isDrawing: true,
-      currentPoints: [point],
+      currentPoints: point ? [point] : [],
+      hoverPoint: point || null,
       drawingImageId: imageId,
     });
   },
@@ -182,39 +185,40 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { isDrawing, currentPoints } = get();
     if (!isDrawing) return;
 
-    // 采样间隔：只有距离上一个点超过 3px 才添加新点
+    // 点击记录新点（多边形顶点）
+    // 限制距离太近的点不被添加（防止双击或者手抖导致重复点）
     const lastPoint = currentPoints[currentPoints.length - 1];
     if (lastPoint) {
       const dist = Math.hypot(point[0] - lastPoint[0], point[1] - lastPoint[1]);
-      if (dist < 3) return;
+      if (dist < 5) return;
     }
+    
+    set({ currentPoints: [...currentPoints, point], hoverPoint: point });
+  },
 
-    set({ currentPoints: [...currentPoints, point] });
+  updateHoverPoint: (point) => {
+    const { isDrawing } = get();
+    if (!isDrawing) return;
+    set({ hoverPoint: point });
   },
 
   finishDrawing: () => {
     const { isDrawing, currentPoints, drawingImageId, annotationMode, examData, selectedQuestionId } = get();
     if (!isDrawing || !drawingImageId) {
-      set({ isDrawing: false, currentPoints: [], drawingImageId: null, annotationMode: 'select' });
+      set({ isDrawing: false, currentPoints: [], hoverPoint: null, drawingImageId: null, annotationMode: 'select' });
       return;
     }
 
-    // 至少需要 3 个点
+    // 多边形至少需要 3 个点
     if (currentPoints.length < 3) {
-      set({ isDrawing: false, currentPoints: [], drawingImageId: null, annotationMode: 'select' });
-      return;
-    }
-
-    // 简化 polygon
-    const simplified = simplifyPolygon(currentPoints, 2);
-    if (simplified.length < 3) {
-      set({ isDrawing: false, currentPoints: [], drawingImageId: null, annotationMode: 'select' });
+      // 这里去掉 Toast，因为用户可能只是按了一下热键没画点就松开了
+      set({ isDrawing: false, currentPoints: [], hoverPoint: null, drawingImageId: null, annotationMode: 'select' });
       return;
     }
 
     const location: AnnotationLocation = {
       image_id: drawingImageId,
-      polygon: simplified,
+      polygon: currentPoints, // 点击多边形不再需要简化算法，直接使用用户的点击点
     };
 
     const newLabels = [...examData.labels];
@@ -236,6 +240,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             undoHistory: nextUndoHistory,
             isDrawing: false,
             currentPoints: [],
+            hoverPoint: null,
             drawingImageId: null,
             annotationMode: 'select',
             selectedAnnotationId: selectedQuestionId,
@@ -261,6 +266,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           undoHistory: nextUndoHistory,
           isDrawing: false,
           currentPoints: [],
+          hoverPoint: null,
           drawingImageId: null,
           annotationMode: 'select',
           selectedQuestionId: questionId,
@@ -287,6 +293,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           undoHistory: nextUndoHistory,
           isDrawing: false,
           currentPoints: [],
+          hoverPoint: null,
           drawingImageId: null,
           annotationMode: 'select',
           selectedAnnotationId: answerId,
@@ -312,6 +319,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           undoHistory: nextUndoHistory,
           isDrawing: false,
           currentPoints: [],
+          hoverPoint: null,
           drawingImageId: null,
           annotationMode: 'select',
           selectedAnnotationId: correctId,
@@ -321,12 +329,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         saveToLocalStorage(newData);
       }
     } else {
-      set({ isDrawing: false, currentPoints: [], drawingImageId: null, annotationMode: 'select' });
+      set({ isDrawing: false, currentPoints: [], hoverPoint: null, drawingImageId: null, annotationMode: 'select' });
     }
   },
 
   cancelDrawing: () => {
-    set({ isDrawing: false, currentPoints: [], drawingImageId: null, annotationMode: 'select' });
+    set({ isDrawing: false, currentPoints: [], hoverPoint: null, drawingImageId: null, annotationMode: 'select' });
   },
 
   prepareNewQuestion: () => {

@@ -473,7 +473,7 @@ body {
 
 .page-image {
   display: block;
-  max-width: 600px;
+  max-width: 800px;
   width: 100%;
   height: auto;
   /* 允许图片完整渲染其实际高度 */
