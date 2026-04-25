@@ -1,0 +1,20 @@
+{
+    "images": [
+        {
+            "id": "img_0",
+            "url": "https://algo-public.s3.cn-north-1.amazonaws.com.cn/feishu/markup-000311.jpg",
+            "rotation": 0
+        },
+        {
+            "id": "img_1",
+            "url": "https://algo-public.s3.cn-north-1.amazonaws.com.cn/feishu/markup-000312.jpg",
+            "rotation": 0
+        },
+        {
+            "id": "img_2",
+            "url": "https://algo-public.s3.cn-north-1.amazonaws.com.cn/feishu/markup-000313.jpg",
+            "rotation": 0
+        }
+    ],
+    "labels": []
+}
