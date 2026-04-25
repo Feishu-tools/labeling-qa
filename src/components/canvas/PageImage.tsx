@@ -312,16 +312,28 @@ export default function PageImage({ image, index }: PageImageProps) {
                       className={`polygon-path ${isSelected ? 'polygon-selected' : ''} ${isHoveredGroup ? 'polygon-hovered' : ''}`}
                       onPointerDown={(e) => {
                         e.stopPropagation();
-                        // 无论当前是什么模式（画图或选择），点击已有的标注都应该选中它及其所属的题目
-                        selectAnnotation(p.id, p.type);
+                        // 只有在选择模式下，点击已有的标注才会被选中
+                        if (annotationMode === 'select') {
+                          selectAnnotation(p.id, p.type);
+                        } else {
+                          // 在画图模式下，点击已有标注框等同于在画布上打点
+                          const point = getImageCoords(e);
+                          if (point) {
+                            if (!isDrawing) {
+                              startDrawing(image.id, point);
+                            } else if (drawingImageId === image.id) {
+                              addDrawingPoint(point);
+                            }
+                          }
+                        }
                       }}
                       onMouseEnter={() => {
-                        setHoveredAnnotation(p.id);
+                        if (annotationMode === 'select') setHoveredAnnotation(p.id);
                       }}
                       onMouseLeave={() => {
-                        setHoveredAnnotation(null);
+                        if (annotationMode === 'select') setHoveredAnnotation(null);
                       }}
-                      style={{ pointerEvents: 'all' }}
+                      style={{ pointerEvents: annotationMode === 'select' ? 'all' : 'none' }}
                     />
                     {/* Label */}
                     {p.polygon.length > 0 && (
