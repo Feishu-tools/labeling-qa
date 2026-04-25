@@ -461,6 +461,9 @@ body {
   position: relative;
   /* 移除 overflow: hidden 以免截断阴影或边框，虽然对图片本身影响不大 */
   border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .page-image-inner {

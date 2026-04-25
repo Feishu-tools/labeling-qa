@@ -63,14 +63,19 @@ export default function PageImage({ image, index }: PageImageProps) {
   // 将鼠标位置转换为图片坐标
   const getImageCoords = useCallback(
     (e: React.PointerEvent | React.MouseEvent): Point | null => {
-      const svg = containerRef.current?.querySelector('svg.page-svg-overlay');
+      const svg = containerRef.current?.querySelector('svg.page-svg-overlay') as SVGSVGElement | null;
       if (!svg || imgSize.w === 0) return null;
 
-      const rect = svg.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * imgSize.w;
-      const y = ((e.clientY - rect.top) / rect.height) * imgSize.h;
+      // 使用 SVG 内置的矩阵系，能完美兼容任何角度的 CSS transform 旋转和缩放
+      const pt = svg.createSVGPoint();
+      pt.x = e.clientX;
+      pt.y = e.clientY;
 
-      return [Math.round(x), Math.round(y)];
+      const ctm = svg.getScreenCTM();
+      if (!ctm) return null;
+
+      const svgPt = pt.matrixTransform(ctm.inverse());
+      return [Math.round(svgPt.x), Math.round(svgPt.y)];
     },
     [imgSize]
   );
@@ -179,13 +184,14 @@ export default function PageImage({ image, index }: PageImageProps) {
     });
   });
 
-  // 旋转样式
-  const rotationStyle: React.CSSProperties = {
-    transform: `rotate(${image.rotation}deg)`,
-  };
-
   // 判断是否是旋转了 90° 或 270° — 需要交换宽高
   const isRotated90 = image.rotation === 90 || image.rotation === 270;
+
+  // 旋转样式：如果旋转了 90 度，应用缩放使其视觉大小完美契合 wrapper 容器，防止溢出或被遮挡
+  const scale = isRotated90 && imgSize.h ? imgSize.w / imgSize.h : 1;
+  const rotationStyle: React.CSSProperties = {
+    transform: `rotate(${image.rotation}deg) scale(${scale})`,
+  };
 
   return (
     <div
