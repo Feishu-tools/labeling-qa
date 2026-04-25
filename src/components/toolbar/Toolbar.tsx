@@ -14,6 +14,10 @@ import {
   Maximize,
   Upload,
   Download,
+  Eye,
+  EyeOff,
+  PanelRightClose,
+  PanelRightOpen,
 } from 'lucide-react';
 
 const modeConfig: {
@@ -54,7 +58,7 @@ const modeConfig: {
 ];
 
 export default function Toolbar() {
-  const { annotationMode, setAnnotationMode, zoom, setZoom, examData, loadExamData, showToast } =
+  const { annotationMode, setAnnotationMode, zoom, setZoom, examData, loadExamData, showToast, showLabels, toggleShowLabels, showPanel, toggleShowPanel } =
     useAppStore();
 
   const handleImport = async () => {
@@ -109,10 +113,25 @@ export default function Toolbar() {
 
       <div className="toolbar-divider" />
 
-      {/* 缩放 */}
+      {/* 缩放与显示控制 */}
       <div className="toolbar-group">
-        <span className="toolbar-group-label">缩放</span>
+        <span className="toolbar-group-label">视图</span>
         <div className="toolbar-zoom-controls">
+          <button
+            className={`toolbar-icon-btn ${showLabels ? 'text-blue-400' : ''}`}
+            onClick={toggleShowLabels}
+            title={showLabels ? "隐藏标注文字" : "显示标注文字"}
+          >
+            {showLabels ? <Eye size={16} /> : <EyeOff size={16} />}
+          </button>
+          <button
+            className={`toolbar-icon-btn ${showPanel ? 'text-blue-400' : ''}`}
+            onClick={toggleShowPanel}
+            title={showPanel ? "隐藏标注列表" : "显示标注列表"}
+          >
+            {showPanel ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+          </button>
+          <div className="toolbar-divider" style={{ height: 16, margin: '0 8px' }} />
           <button
             className="toolbar-icon-btn"
             onClick={() => setZoom(zoom - 0.1)}

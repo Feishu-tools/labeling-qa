@@ -1,7 +1,7 @@
 // ============================================================
 // 标注画布 — 水平排列所有页面
 // ============================================================
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useState } from 'react';
 import { useAppStore } from '../../store';
 import PageImage from './PageImage';
 import {
@@ -71,6 +71,7 @@ function SortablePageItem({ image, index, isControlPressed }: { image: ExamImage
 
 export default function AnnotationCanvas() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [activeKey, setLocalActiveKey] = useState<string | null>(null); // 用于提示组件的视觉高亮
   const { examData, zoom, reorderImages, isDrawing, finishDrawing, cancelDrawing, loadExamData, showToast, setActiveHotkey, setAnnotationMode, setControlPressed, isControlPressed, undo } = useAppStore();
 
   const sensors = useSensors(
@@ -105,6 +106,15 @@ export default function AnnotationCanvas() {
       // 忽略输入框内的按键
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
+      }
+
+      const keyStr = e.key.toLowerCase();
+      if (e.code === 'Space') {
+        setLocalActiveKey('space');
+      } else if (keyStr === 'control' || keyStr === 'meta') {
+        setLocalActiveKey('ctrl');
+      } else {
+        setLocalActiveKey(keyStr);
       }
       
       if (e.key === 'Control' || e.key === 'Meta') {
@@ -179,6 +189,15 @@ export default function AnnotationCanvas() {
         return;
       }
       
+      const keyStr = e.key.toLowerCase();
+      if (e.code === 'Space') {
+        setLocalActiveKey((prev) => prev === 'space' ? null : prev);
+      } else if (keyStr === 'control' || keyStr === 'meta') {
+        setLocalActiveKey((prev) => prev === 'ctrl' ? null : prev);
+      } else {
+        setLocalActiveKey((prev) => prev === keyStr ? null : prev);
+      }
+
       if (e.key === 'Control' || e.key === 'Meta') {
         setControlPressed(false);
       }
@@ -233,7 +252,18 @@ export default function AnnotationCanvas() {
   }
 
   return (
-    <div className="canvas-area" id="canvas-area">
+    <div className="canvas-area" id="canvas-area" style={{ position: 'relative' }}>
+      {/* 快捷键提示组件 */}
+      <div className="hotkey-hint-overlay">
+        <div className={`hotkey-item ${activeKey === 'space' ? 'active' : ''}`}><kbd>Space</kbd> <span>新题</span></div>
+        <div className={`hotkey-item ${activeKey === '1' ? 'active' : ''}`}><kbd>1</kbd> <span className="text-blue-400">题目</span></div>
+        <div className={`hotkey-item ${activeKey === '2' ? 'active' : ''}`}><kbd>2</kbd> <span className="text-emerald-400">答案</span></div>
+        <div className={`hotkey-item ${activeKey === '3' ? 'active' : ''}`}><kbd>3</kbd> <span className="text-orange-400">批改</span></div>
+        <div className={`hotkey-item ${activeKey === 'e' ? 'active' : ''}`}><kbd>E</kbd> <span>旋转</span></div>
+        <div className={`hotkey-item ${activeKey === 'r' ? 'active' : ''}`}><kbd>R</kbd> <span>撤销</span></div>
+        <div className={`hotkey-item ${activeKey === 'ctrl' ? 'active' : ''}`}><kbd>Ctrl</kbd> <span>拖拽页面</span></div>
+      </div>
+
       <div
         className="canvas-scroll-container"
         ref={scrollContainerRef}

@@ -8,7 +8,7 @@ import AnnotationCanvas from './components/canvas/AnnotationCanvas';
 import AnnotationPanel from './components/panel/AnnotationPanel';
 
 function App() {
-  const { initFromStorage, toastMessage, clearToast, examData } = useAppStore();
+  const { initFromStorage, toastMessage, clearToast, showPanel } = useAppStore();
 
   useEffect(() => {
     initFromStorage();
@@ -20,7 +20,7 @@ function App() {
 
       <main className="app-main">
         <AnnotationCanvas />
-        {examData.images.length > 0 && <AnnotationPanel />}
+        {showPanel && <AnnotationPanel />}
       </main>
 
       {/* Toast 消息 */}

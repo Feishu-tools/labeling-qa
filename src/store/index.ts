@@ -32,6 +32,8 @@ interface AppState {
   isDrawing: boolean;
   activeHotkey: '1' | '2' | '3' | '`' | null; // 记录当前按下的热键
   isControlPressed: boolean; // 是否按下了 Control 键
+  showLabels: boolean; // 是否显示画布上的标签文字
+  showPanel: boolean; // 是否显示右侧标注列表面板
   currentPoints: Point[];
   hoverPoint: Point | null; // 记录当前鼠标悬停的坐标点
   drawingImageId: string | null;
@@ -43,6 +45,8 @@ interface AppState {
   setAnnotationMode: (mode: AnnotationMode) => void;
   setActiveHotkey: (key: '1' | '2' | '3' | '`' | null) => void;
   setControlPressed: (pressed: boolean) => void;
+  toggleShowLabels: () => void;
+  toggleShowPanel: () => void;
   selectQuestion: (id: string | null) => void;
   selectAnnotation: (id: string | null, type: 'question' | 'answer' | 'correction' | null) => void;
   setHoveredAnnotation: (id: string | null) => void;
@@ -92,6 +96,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   isDrawing: false,
   activeHotkey: null,
   isControlPressed: false,
+  showLabels: false, // 默认隐藏
+  showPanel: false, // 默认隐藏右侧面板
   currentPoints: [],
   hoverPoint: null,
   drawingImageId: null,
@@ -117,6 +123,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setActiveHotkey: (key) => set({ activeHotkey: key }),
 
   setControlPressed: (pressed) => set({ isControlPressed: pressed }),
+
+  toggleShowLabels: () => set((state) => ({ showLabels: !state.showLabels })),
+
+  toggleShowPanel: () => set((state) => ({ showPanel: !state.showPanel })),
 
   selectQuestion: (id) =>
     set({

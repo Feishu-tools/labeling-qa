@@ -96,6 +96,7 @@ body {
 }
 
 .app-main {
+  position: relative;
   display: flex;
   flex: 1;
   overflow: hidden;
@@ -528,6 +529,66 @@ body {
 @keyframes polygonPulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
+}
+
+/* ============================================================
+   Hotkey Hint Overlay
+   ============================================================ */
+.hotkey-hint-overlay {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  padding: 8px 16px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 50;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+
+.hotkey-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.hotkey-item kbd {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.1s ease-in-out;
+}
+
+.hotkey-item.active kbd {
+  background: rgba(255, 255, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
+  transform: scale(1.15);
+  color: #fff;
+}
+
+.hotkey-item.active span {
+  color: #fff;
+  transition: color 0.1s;
+}
+
+.hotkey-item span {
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  transition: color 0.1s;
 }
 
 /* ============================================================

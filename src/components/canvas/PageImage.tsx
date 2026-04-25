@@ -35,6 +35,7 @@ export default function PageImage({ image, index }: PageImageProps) {
     selectedAnnotationId,
     selectedQuestionId,
     hoveredAnnotationId,
+    showLabels,
     startDrawing,
     addDrawingPoint,
     updateHoverPoint,
@@ -336,7 +337,7 @@ export default function PageImage({ image, index }: PageImageProps) {
                       style={{ pointerEvents: annotationMode === 'select' ? 'all' : 'none' }}
                     />
                     {/* Label */}
-                    {p.polygon.length > 0 && (
+                    {p.polygon.length > 0 && showLabels && (
                       <text
                         x={p.polygon[0][0] + 4}
                         y={p.polygon[0][1] - 6}
