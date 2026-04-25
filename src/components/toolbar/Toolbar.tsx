@@ -4,6 +4,8 @@
 import { useAppStore } from '../../store';
 import { importFromJsonFile, exportToJsonFile } from '../../utils/storage';
 import type { AnnotationMode } from '../../types';
+import { writeDataToField, getRowAllFields } from '../../utils/get_structured_data';
+import type { FieldData } from '../../utils/get_structured_data';
 import {
   MousePointer2,
   FileText,
@@ -18,6 +20,10 @@ import {
   EyeOff,
   PanelRightClose,
   PanelRightOpen,
+  ChevronLeft,
+  ChevronRight,
+  Save,
+  Check,
 } from 'lucide-react';
 
 const modeConfig: {
@@ -58,8 +64,25 @@ const modeConfig: {
 ];
 
 export default function Toolbar() {
-  const { annotationMode, setAnnotationMode, zoom, setZoom, examData, loadExamData, showToast, showLabels, toggleShowLabels, showPanel, toggleShowPanel } =
-    useAppStore();
+  const {
+    annotationMode,
+    setAnnotationMode,
+    zoom,
+    setZoom,
+    examData,
+    loadExamData,
+    showToast,
+    showLabels,
+    toggleShowLabels,
+    showPanel,
+    toggleShowPanel,
+    isFeishuEnv,
+    feishuCurrentIndex,
+    feishuRecordIds,
+    feishuTableId,
+    setFeishuState,
+    handleSaveFeishuData,
+  } = useAppStore();
 
   const handleImport = async () => {
     try {
@@ -74,6 +97,74 @@ export default function Toolbar() {
   const handleExport = () => {
     exportToJsonFile(examData);
     showToast('已导出标注数据');
+  };
+
+  // 飞书相关：解析行数据
+  const processFeishuRowData = (data: FieldData[]) => {
+    const outputJsonField = data.find((f) => f.fieldName === '输出json');
+    const inputJsonField = data.find((f) => f.fieldName === '输入json');
+
+    let jsonDataToParse = null;
+    if (outputJsonField && outputJsonField.value) {
+      jsonDataToParse = outputJsonField.value;
+    } else if (inputJsonField && inputJsonField.value) {
+      jsonDataToParse = inputJsonField.value;
+    }
+
+    if (jsonDataToParse) {
+      try {
+        let structuredDataStr = '';
+        for (const item of jsonDataToParse) {
+          if (item.type === 'text' || item.type === 'url') {
+            structuredDataStr += item.text || '';
+          }
+        }
+        if (structuredDataStr.trim()) {
+          loadExamData(JSON.parse(structuredDataStr));
+        } else {
+          loadExamData({ images: [], labels: [] });
+        }
+      } catch (error) {
+        console.error('解析JSON出错', error);
+        loadExamData({ images: [], labels: [] });
+      }
+    } else {
+      loadExamData({ images: [], labels: [] });
+    }
+  };
+
+  // 上一行
+  const handlePrevRow = async () => {
+    if (feishuCurrentIndex > 0) {
+      const prevIndex = feishuCurrentIndex - 1;
+      const prevId = feishuRecordIds[prevIndex];
+      const res = await getRowAllFields({ tableId: feishuTableId, recordId: prevId, useCurrentSelection: false });
+      if (res.success && res.data) {
+        setFeishuState({ feishuCurrentIndex: prevIndex });
+        processFeishuRowData(res.data);
+      }
+    }
+  };
+
+  // 下一行
+  const handleNextRow = async () => {
+    if (feishuCurrentIndex < feishuRecordIds.length - 1) {
+      const nextIndex = feishuCurrentIndex + 1;
+      const nextId = feishuRecordIds[nextIndex];
+      const res = await getRowAllFields({ tableId: feishuTableId, recordId: nextId, useCurrentSelection: false });
+      if (res.success && res.data) {
+        setFeishuState({ feishuCurrentIndex: nextIndex });
+        processFeishuRowData(res.data);
+      }
+    }
+  };
+
+  // 保存数据
+  const handleSaveFeishuDataBtn = async (isComplete: boolean = false) => {
+    await handleSaveFeishuData(isComplete);
+    if (isComplete) {
+      handleNextRow();
+    }
   };
 
   return (
@@ -160,20 +251,60 @@ export default function Toolbar() {
       {/* 右侧操作 */}
       <div className="toolbar-spacer" />
 
-      <div className="toolbar-group">
-        <button className="toolbar-action-btn" onClick={handleImport}>
-          <Upload size={15} />
-          <span>导入</span>
-        </button>
-        <button
-          className="toolbar-action-btn toolbar-action-btn--primary"
-          onClick={handleExport}
-          disabled={examData.images.length === 0}
-        >
-          <Download size={15} />
-          <span>导出</span>
-        </button>
-      </div>
+      {isFeishuEnv ? (
+        <div className="toolbar-group">
+          <div className="toolbar-zoom-controls">
+            <button
+              className="toolbar-icon-btn"
+              onClick={handlePrevRow}
+              disabled={feishuCurrentIndex <= 0}
+              title="上一题"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="toolbar-zoom-value" style={{ width: 60, textAlign: 'center' }}>
+              {feishuRecordIds.length > 0 ? `${feishuCurrentIndex + 1} / ${feishuRecordIds.length}` : '-'}
+            </span>
+            <button
+              className="toolbar-icon-btn"
+              onClick={handleNextRow}
+              disabled={feishuCurrentIndex >= feishuRecordIds.length - 1}
+              title="下一题"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
+          <div className="toolbar-divider" />
+
+          <button className="toolbar-action-btn" onClick={() => handleSaveFeishuDataBtn(false)}>
+            <Save size={15} />
+            <span>保存</span>
+          </button>
+          <button
+            className="toolbar-action-btn toolbar-action-btn--primary"
+            onClick={() => handleSaveFeishuDataBtn(true)}
+          >
+            <Check size={15} />
+            <span>完成</span>
+          </button>
+        </div>
+      ) : (
+        <div className="toolbar-group">
+          <button className="toolbar-action-btn" onClick={handleImport}>
+            <Upload size={15} />
+            <span>导入</span>
+          </button>
+          <button
+            className="toolbar-action-btn toolbar-action-btn--primary"
+            onClick={handleExport}
+            disabled={examData.images.length === 0}
+          >
+            <Download size={15} />
+            <span>导出</span>
+          </button>
+        </div>
+      )}
     </header>
   );
 }

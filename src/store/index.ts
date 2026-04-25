@@ -11,6 +11,8 @@ import type {
   AnnotationLocation,
 } from '../types';
 import { saveToLocalStorage, loadFromLocalStorage, generateId } from '../utils/storage';
+import { writeDataToField, getRowAllFields } from '../utils/get_structured_data';
+import type { FieldData } from '../utils/get_structured_data';
 
 interface AppState {
   // ---- 数据 ----
@@ -38,9 +40,16 @@ interface AppState {
   hoverPoint: Point | null; // 记录当前鼠标悬停的坐标点
   drawingImageId: string | null;
 
+  // ---- 飞书状态 ----
+  isFeishuEnv: boolean;
+  feishuRecordIds: string[];
+  feishuCurrentIndex: number;
+  feishuTableId: string;
+
   // ---- Actions ----
   loadExamData: (data: ExamData) => void;
   initFromStorage: () => boolean;
+  setFeishuState: (state: Partial<{ isFeishuEnv: boolean, feishuRecordIds: string[], feishuCurrentIndex: number, feishuTableId: string }>) => void;
 
   setAnnotationMode: (mode: AnnotationMode) => void;
   setActiveHotkey: (key: '1' | '2' | '3' | '`' | null) => void;
@@ -76,6 +85,9 @@ interface AppState {
 
   // 自动保存
   autoSave: () => void;
+  
+  // 飞书保存
+  handleSaveFeishuData: (isComplete?: boolean) => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -102,6 +114,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   hoverPoint: null,
   drawingImageId: null,
 
+  isFeishuEnv: false,
+  feishuRecordIds: [],
+  feishuCurrentIndex: -1,
+  feishuTableId: '',
+
   // ---- Actions ----
 
   loadExamData: (data) => {
@@ -117,6 +134,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     return false;
   },
+
+  setFeishuState: (state) => set(state),
 
   setAnnotationMode: (mode) => set({ annotationMode: mode }),
   
@@ -449,9 +468,39 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().showToast('已撤销');
   },
 
+  // 自动保存
   autoSave: () => {
+    if (!get().hasUnsavedChanges) return;
     const { examData } = get();
     saveToLocalStorage(examData);
     set({ hasUnsavedChanges: false });
+  },
+
+  handleSaveFeishuData: async (isComplete: boolean = false) => {
+    const { feishuRecordIds, feishuCurrentIndex, feishuTableId, examData, showToast } = get();
+    const currentId = feishuRecordIds[feishuCurrentIndex];
+    if (!currentId || !feishuTableId) return;
+
+    try {
+      showToast('正在保存...');
+      await writeDataToField(JSON.stringify(examData, null, 4), {
+        fieldName: '输出json',
+        useCurrentSelection: false,
+        tableId: feishuTableId,
+        recordId: currentId,
+      });
+
+      await writeDataToField(isComplete ? '已标注' : '标注中', {
+        fieldName: '标注状态',
+        useCurrentSelection: false,
+        tableId: feishuTableId,
+        recordId: currentId,
+      });
+
+      showToast(isComplete ? '保存成功并标记完成' : '保存成功');
+    } catch (e) {
+      console.error(e);
+      showToast('保存失败');
+    }
   },
 }));
