@@ -71,7 +71,7 @@ function SortablePageItem({ image, index, isControlPressed }: { image: ExamImage
 
 export default function AnnotationCanvas() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const { examData, zoom, reorderImages, isDrawing, finishDrawing, cancelDrawing, loadExamData, showToast, setActiveHotkey, setAnnotationMode, setControlPressed, isControlPressed } = useAppStore();
+  const { examData, zoom, reorderImages, isDrawing, finishDrawing, cancelDrawing, loadExamData, showToast, setActiveHotkey, setAnnotationMode, setControlPressed, isControlPressed, undo } = useAppStore();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -128,6 +128,17 @@ export default function AnnotationCanvas() {
       if (e.key === 'Escape') {
         cancelDrawing();
       }
+      if (e.key === 'r' || e.key === 'R') {
+        undo();
+        return;
+      }
+      if (e.key === 'e' || e.key === 'E') {
+        const state = useAppStore.getState();
+        if (state.hoveredImageId) {
+          state.rotateImage(state.hoveredImageId);
+        }
+        return;
+      }
       if (e.key === '1') {
         setActiveHotkey('1');
         setAnnotationMode('question');
@@ -172,7 +183,7 @@ export default function AnnotationCanvas() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isDrawing, finishDrawing, cancelDrawing, setActiveHotkey, setControlPressed]);
+  }, [isDrawing, finishDrawing, cancelDrawing, setActiveHotkey, setControlPressed, undo]);
 
   const handleImport = async () => {
     try {

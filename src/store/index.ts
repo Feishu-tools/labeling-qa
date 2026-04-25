@@ -17,6 +17,7 @@ interface AppState {
   // ---- 数据 ----
   examData: ExamData;
   hasUnsavedChanges: boolean;
+  undoHistory: ExamData[]; // 用于撤销的历史记录栈
 
   // ---- UI 状态 ----
   annotationMode: AnnotationMode;
@@ -24,6 +25,7 @@ interface AppState {
   selectedAnnotationId: string | null; // answer/correction id
   selectedAnnotationType: 'question' | 'answer' | 'correction' | null;
   hoveredAnnotationId: string | null;
+  hoveredImageId: string | null; // 记录当前鼠标悬停的图片 ID
   zoom: number;
   toastMessage: string | null;
 
@@ -44,6 +46,7 @@ interface AppState {
   selectQuestion: (id: string | null) => void;
   selectAnnotation: (id: string | null, type: 'question' | 'answer' | 'correction' | null) => void;
   setHoveredAnnotation: (id: string | null) => void;
+  setHoveredImage: (id: string | null) => void;
   setZoom: (zoom: number) => void;
   showToast: (msg: string) => void;
   clearToast: () => void;
@@ -64,6 +67,7 @@ interface AppState {
   deleteAnswer: (questionId: string, answerId: string) => void;
   deleteCorrection: (questionId: string, correctionId: string) => void;
   updateQuestionText: (questionId: string, text: string) => void;
+  undo: () => void;
 
   // 自动保存
   autoSave: () => void;
@@ -73,12 +77,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   // ---- 初始数据 ----
   examData: { images: [], labels: [] },
   hasUnsavedChanges: false,
+  undoHistory: [],
 
   annotationMode: 'select',
   selectedQuestionId: null,
   selectedAnnotationId: null,
   selectedAnnotationType: null,
   hoveredAnnotationId: null,
+  hoveredImageId: null,
   zoom: 1,
   toastMessage: null,
 
@@ -138,6 +144,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
 
   setHoveredAnnotation: (id) => set({ hoveredAnnotationId: id }),
+
+  setHoveredImage: (id) => set({ hoveredImageId: id }),
 
   setZoom: (zoom) => set({ zoom: Math.max(0.2, Math.min(3, zoom)) }),
 
@@ -210,6 +218,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
 
     const newLabels = [...examData.labels];
+    // 记录历史状态以便撤销
+    const nextUndoHistory = [...get().undoHistory, examData].slice(-20); // 最多保留 20 步撤销
 
     if (annotationMode === 'question') {
       if (selectedQuestionId) {
@@ -223,6 +233,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           const newData = { ...examData, labels: newLabels };
           set({
             examData: newData,
+            undoHistory: nextUndoHistory,
             isDrawing: false,
             currentPoints: [],
             drawingImageId: null,
@@ -247,6 +258,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         const newData = { ...examData, labels: newLabels };
         set({
           examData: newData,
+          undoHistory: nextUndoHistory,
           isDrawing: false,
           currentPoints: [],
           drawingImageId: null,
@@ -272,6 +284,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         const newData = { ...examData, labels: newLabels };
         set({
           examData: newData,
+          undoHistory: nextUndoHistory,
           isDrawing: false,
           currentPoints: [],
           drawingImageId: null,
@@ -296,6 +309,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         const newData = { ...examData, labels: newLabels };
         set({
           examData: newData,
+          undoHistory: nextUndoHistory,
           isDrawing: false,
           currentPoints: [],
           drawingImageId: null,
@@ -392,8 +406,29 @@ export const useAppStore = create<AppState>((set, get) => ({
       q.question_id === questionId ? { ...q, question_text: text } : q
     );
     const newData = { ...examData, labels: newLabels };
+    // 更新文本不进入撤销栈，仅标注时撤销
     set({ examData: newData, hasUnsavedChanges: true });
     saveToLocalStorage(newData);
+  },
+
+  undo: () => {
+    const { undoHistory } = get();
+    if (undoHistory.length === 0) {
+      get().showToast('没有可撤销的操作');
+      return;
+    }
+    const previousData = undoHistory[undoHistory.length - 1];
+    const newHistory = undoHistory.slice(0, -1);
+    set({
+      examData: previousData,
+      undoHistory: newHistory,
+      hasUnsavedChanges: true,
+      selectedQuestionId: null,
+      selectedAnnotationId: null,
+      selectedAnnotationType: null,
+    });
+    saveToLocalStorage(previousData);
+    get().showToast('已撤销');
   },
 
   autoSave: () => {

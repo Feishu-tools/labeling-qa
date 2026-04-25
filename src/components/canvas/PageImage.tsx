@@ -41,6 +41,7 @@ export default function PageImage({ image, index }: PageImageProps) {
     rotateImage,
     selectAnnotation,
     setHoveredAnnotation,
+    setHoveredImage,
   } = useAppStore();
 
   // 获取图片实际渲染尺寸
@@ -84,15 +85,19 @@ export default function PageImage({ image, index }: PageImageProps) {
     (e: React.PointerEvent<SVGSVGElement>) => {
       if (e.button !== 0) return;
       if (activeHotkey) return; // 热键模式下忽略鼠标按下，避免冲突
-      try {
-        e.currentTarget.setPointerCapture(e.pointerId);
-      } catch (e) {}
-      const point = getImageCoords(e);
-      if (point) {
-        startDrawing(image.id, point);
+      
+      // 只有在画图模式下点击空白处才开始画图
+      if (annotationMode !== 'select') {
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch (e) {}
+        const point = getImageCoords(e);
+        if (point) {
+          startDrawing(image.id, point);
+        }
       }
     },
-    [getImageCoords, image.id, startDrawing, activeHotkey]
+    [getImageCoords, image.id, startDrawing, activeHotkey, annotationMode]
   );
 
   const handlePointerMove = useCallback(
@@ -197,8 +202,14 @@ export default function PageImage({ image, index }: PageImageProps) {
     <div
       className="page-image-container"
       ref={containerRef}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={() => {
+        setIsHovered(true);
+        setHoveredImage(image.id);
+      }}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setHoveredImage(null);
+      }}
       data-page-index={index}
     >
       {/* 页码标签 */}
@@ -276,12 +287,19 @@ export default function PageImage({ image, index }: PageImageProps) {
                     ...ANNOTATION_COLORS_SELECTED[p.type],
                     label: ANNOTATION_COLORS[p.type].label
                   };
-                } else if (isGroupSelected) {
-                  // 使用高亮颜色，但稍微降低不透明度区分主次
+                } else if (isGroupSelected || isHoveredGroup) {
+                  // 同组高亮
                   colors = {
-                    fill: ANNOTATION_COLORS_SELECTED[p.type].fill.replace('0.30', '0.20'), 
+                    fill: ANNOTATION_COLORS_SELECTED[p.type].fill.replace(/[\d.]+\)$/, '0.35)'), 
                     stroke: ANNOTATION_COLORS_SELECTED[p.type].stroke,
                     label: ANNOTATION_COLORS[p.type].label
+                  };
+                } else {
+                  // 未选中且未悬停，置为灰色
+                  colors = {
+                    fill: 'rgba(93, 94, 96, 0.22)', // tailwind gray-400
+                    stroke: 'rgba(85, 89, 94, 0.6)',
+                    label: 'rgba(48, 54, 64, 0.8)'
                   };
                 }
 
@@ -295,19 +313,18 @@ export default function PageImage({ image, index }: PageImageProps) {
                       vectorEffect="non-scaling-stroke"
                       strokeLinejoin="round"
                       className={`polygon-path ${isSelected ? 'polygon-selected' : ''} ${isHoveredGroup ? 'polygon-hovered' : ''}`}
-                      onClick={(e) => {
+                      onPointerDown={(e) => {
                         e.stopPropagation();
-                        if (annotationMode === 'select') {
-                          selectAnnotation(p.id, p.type);
-                        }
+                        // 无论当前是什么模式（画图或选择），点击已有的标注都应该选中它及其所属的题目
+                        selectAnnotation(p.id, p.type);
                       }}
                       onMouseEnter={() => {
-                        if (annotationMode === 'select') setHoveredAnnotation(p.id);
+                        setHoveredAnnotation(p.id);
                       }}
                       onMouseLeave={() => {
-                        if (annotationMode === 'select') setHoveredAnnotation(null);
+                        setHoveredAnnotation(null);
                       }}
-                      style={{ pointerEvents: annotationMode === 'select' ? 'all' : 'none' }}
+                      style={{ pointerEvents: 'all' }}
                     />
                     {/* Label */}
                     {p.polygon.length > 0 && (
@@ -315,7 +332,7 @@ export default function PageImage({ image, index }: PageImageProps) {
                         x={p.polygon[0][0] + 4}
                         y={p.polygon[0][1] - 6}
                         className="polygon-label"
-                        fill={ANNOTATION_COLORS[p.type].stroke}
+                        fill={colors.label}
                         fontSize={Math.max(12, imgSize.w * 0.015)}
                         fontWeight="600"
                         style={{ pointerEvents: 'none' }}
