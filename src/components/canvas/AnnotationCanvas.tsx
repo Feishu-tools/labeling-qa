@@ -23,7 +23,7 @@ import { FileUp } from 'lucide-react';
 import { importFromJsonFile } from '../../utils/storage';
 
 /** 可排序的页面包装器 */
-function SortablePageItem({ image, index, isControlPressed }: { image: ExamImage; index: number; isControlPressed: boolean }) {
+function SortablePageItem({ image, index }: { image: ExamImage; index: number }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: image.id,
   });
@@ -33,37 +33,10 @@ function SortablePageItem({ image, index, isControlPressed }: { image: ExamImage
     transition,
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 10 : 1,
-    cursor: isControlPressed ? 'grab' : 'default',
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="sortable-page-item" {...(isControlPressed ? attributes : {})} {...(isControlPressed ? listeners : {})}>
-      {/* 始终渲染拖拽把手，当没有按 control 时可以通过它拖拽 */}
-      {!isControlPressed && (
-        <div className="drag-handle" {...attributes} {...listeners} title="拖拽排序">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-            <circle cx="3" cy="3" r="1.2" />
-            <circle cx="9" cy="3" r="1.2" />
-            <circle cx="3" cy="6" r="1.2" />
-            <circle cx="9" cy="6" r="1.2" />
-            <circle cx="3" cy="9" r="1.2" />
-            <circle cx="9" cy="9" r="1.2" />
-          </svg>
-        </div>
-      )}
-      {/* 当按住 control 时，为了视觉提示，直接显示把手图标但不再需要单独绑事件 */}
-      {isControlPressed && (
-        <div className="drag-handle" title="按住 Control 全局拖拽" style={{ opacity: 1 }}>
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-            <circle cx="3" cy="3" r="1.2" />
-            <circle cx="9" cy="3" r="1.2" />
-            <circle cx="3" cy="6" r="1.2" />
-            <circle cx="9" cy="6" r="1.2" />
-            <circle cx="3" cy="9" r="1.2" />
-            <circle cx="9" cy="9" r="1.2" />
-          </svg>
-        </div>
-      )}
+    <div ref={setNodeRef} style={style} className="sortable-page-item" {...attributes} {...listeners}>
       <PageImage image={image} index={index} />
     </div>
   );
@@ -261,7 +234,6 @@ export default function AnnotationCanvas() {
         <div className={`hotkey-item ${activeKey === '3' ? 'active' : ''}`}><kbd>3</kbd> <span className="text-orange-400">批改</span></div>
         <div className={`hotkey-item ${activeKey === 'e' ? 'active' : ''}`}><kbd>E</kbd> <span>旋转</span></div>
         <div className={`hotkey-item ${activeKey === 'r' ? 'active' : ''}`}><kbd>R</kbd> <span>撤销</span></div>
-        <div className={`hotkey-item ${activeKey === 'ctrl' ? 'active' : ''}`}><kbd>Ctrl</kbd> <span>拖拽页面</span></div>
       </div>
 
       <div
@@ -282,7 +254,7 @@ export default function AnnotationCanvas() {
               }}
             >
               {examData.images.map((image, index) => (
-                <SortablePageItem key={image.id} image={image} index={index} isControlPressed={isControlPressed} />
+                <SortablePageItem key={image.id} image={image} index={index} />
               ))}
             </div>
           </SortableContext>
