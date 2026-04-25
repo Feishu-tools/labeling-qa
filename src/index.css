@@ -289,15 +289,15 @@ body {
   padding: 32px;
   /* 取消 justify-content: center，防止内容超出时左侧被截断 */
   display: flex;
-  align-items: flex-start;
+  align-items: center; /* 垂直居中 */
 }
 
 .canvas-pages-row {
   display: flex;
   gap: 24px;
-  align-items: flex-start;
+  align-items: center; /* 垂直居中 */
   /* 当内容宽度小于容器时居中，大于容器时靠左，防止左侧内容无法滚动看到 */
-  margin: 0 auto;
+  margin: auto;
   min-width: max-content;
 }
 
@@ -370,6 +370,7 @@ body {
 .sortable-page-item {
   position: relative;
   flex-shrink: 0;
+  /* 允许在按下 control 时直接通过拖拽 item 排序 */
 }
 
 .drag-handle {
@@ -490,12 +491,16 @@ body {
    Polygon Styles
    ============================================================ */
 .polygon-path {
-  transition: stroke-width 0.15s, fill 0.15s;
+  transition: stroke-width 0.2s, fill 0.2s, filter 0.2s;
   cursor: pointer;
 }
 
 .polygon-hovered {
   filter: brightness(1.3);
+}
+
+.polygon-group-selected {
+  /* 也可以加个极其轻微的脉冲或维持高亮，目前靠透明度控制即可 */
 }
 
 .polygon-selected {
@@ -604,6 +609,12 @@ body {
 
 .panel-question-group--active {
   background: var(--bg-surface-2);
+  border-radius: 6px;
+  margin: 0 6px 4px;
+}
+
+.panel-question-group--hovered {
+  background: var(--bg-surface-3);
   border-radius: 6px;
   margin: 0 6px 4px;
 }

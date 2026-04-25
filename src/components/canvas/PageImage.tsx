@@ -1,7 +1,7 @@
 // ============================================================
 // 单页图片组件 — 渲染图片 + SVG polygon overlay
 // ============================================================
-import { useRef, useCallback, useState, useEffect } from 'react';
+import { useRef, useCallback, useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '../../store';
 import type { Point, ExamImage } from '../../types';
 import { ANNOTATION_COLORS, ANNOTATION_COLORS_SELECTED } from '../../types';
@@ -10,13 +10,7 @@ import { RotateCw } from 'lucide-react';
 
 const getCustomCursor = (mode: string) => {
   if (mode === 'select') return 'default';
-  const colorMap: Record<string, string> = {
-    question: '#3b82f6',
-    answer: '#22c55e',
-    correction: '#f97316',
-  };
-  const color = colorMap[mode] || '#000000';
-  const svg = `<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="12" fill="none" stroke="white" stroke-width="4"/><circle cx="16" cy="16" r="12" fill="none" stroke="${color}" stroke-width="2"/><line x1="16" y1="0" x2="16" y2="32" stroke="white" stroke-width="4"/><line x1="0" y1="16" x2="32" y2="16" stroke="white" stroke-width="4"/><line x1="16" y1="0" x2="16" y2="32" stroke="${color}" stroke-width="2"/><line x1="0" y1="16" x2="32" y2="16" stroke="${color}" stroke-width="2"/><circle cx="16" cy="16" r="5" fill="#ef4444"/></svg>`;
+  const svg = `<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="5" fill="#ef4444"/></svg>`;
   return `url('data:image/svg+xml;utf8,${encodeURIComponent(svg)}') 16 16, crosshair`;
 };
 
@@ -38,6 +32,7 @@ export default function PageImage({ image, index }: PageImageProps) {
     currentPoints,
     drawingImageId,
     selectedAnnotationId,
+    selectedQuestionId,
     hoveredAnnotationId,
     activeHotkey,
     startDrawing,
@@ -132,6 +127,17 @@ export default function PageImage({ image, index }: PageImageProps) {
     questionId: string;
     label: string;
   }[] = [];
+
+  // 获取当前悬停的多边形所属的题目 ID
+  const hoveredQuestionId = useMemo(() => {
+    if (!hoveredAnnotationId) return null;
+    for (const q of examData.labels) {
+      if (q.question_id === hoveredAnnotationId) return q.question_id;
+      if (q.answer.some(a => a.id === hoveredAnnotationId)) return q.question_id;
+      if (q.correct.some(c => c.id === hoveredAnnotationId)) return q.question_id;
+    }
+    return null;
+  }, [hoveredAnnotationId, examData.labels]);
 
   examData.labels.forEach((q, qi) => {
     q.location.forEach((loc) => {
@@ -248,11 +254,30 @@ export default function PageImage({ image, index }: PageImageProps) {
 
               {/* 已有标注 */}
               {polygons.map((p) => {
+                // 判断当前多边形是否属于被选中的题目组
+                const isGroupSelected = selectedQuestionId === p.questionId;
+                
                 const isSelected = selectedAnnotationId === p.id;
-                const isHoveredPolygon = hoveredAnnotationId === p.id;
-                const colors = isSelected
-                  ? ANNOTATION_COLORS_SELECTED[p.type]
-                  : ANNOTATION_COLORS[p.type];
+                // 判断当前多边形是否属于被悬停的题目组
+                const isHoveredGroup = hoveredQuestionId === p.questionId;
+                
+                // 如果当前多边形本身被选中，使用选中颜色；
+                // 否则，如果它所在的题目组被选中，也给予一定的亮度/颜色加成；
+                // 如果都没选中，使用基础颜色。
+                let colors = ANNOTATION_COLORS[p.type];
+                if (isSelected) {
+                  colors = {
+                    ...ANNOTATION_COLORS_SELECTED[p.type],
+                    label: ANNOTATION_COLORS[p.type].label
+                  };
+                } else if (isGroupSelected) {
+                  // 使用高亮颜色，但稍微降低不透明度区分主次
+                  colors = {
+                    fill: ANNOTATION_COLORS_SELECTED[p.type].fill.replace('0.30', '0.20'), 
+                    stroke: ANNOTATION_COLORS_SELECTED[p.type].stroke,
+                    label: ANNOTATION_COLORS[p.type].label
+                  };
+                }
 
                 return (
                   <g key={`${p.id}-${p.polygon.length}`}>
@@ -260,10 +285,10 @@ export default function PageImage({ image, index }: PageImageProps) {
                       d={polygonToSvgPath(p.polygon)}
                       fill={colors.fill}
                       stroke={colors.stroke}
-                      strokeWidth={isSelected || isHoveredPolygon ? 3 : 1.5}
+                      strokeWidth={isSelected || isHoveredGroup ? 3 : 1.5}
                       vectorEffect="non-scaling-stroke"
                       strokeLinejoin="round"
-                      className={`polygon-path ${isSelected ? 'polygon-selected' : ''} ${isHoveredPolygon ? 'polygon-hovered' : ''}`}
+                      className={`polygon-path ${isSelected ? 'polygon-selected' : ''} ${isHoveredGroup ? 'polygon-hovered' : ''}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (annotationMode === 'select') {

@@ -30,6 +30,7 @@ interface AppState {
   // ---- 绘制状态 ----
   isDrawing: boolean;
   activeHotkey: '1' | '2' | '3' | '`' | null; // 记录当前按下的热键
+  isControlPressed: boolean; // 是否按下了 Control 键
   currentPoints: Point[];
   drawingImageId: string | null;
 
@@ -39,6 +40,7 @@ interface AppState {
 
   setAnnotationMode: (mode: AnnotationMode) => void;
   setActiveHotkey: (key: '1' | '2' | '3' | '`' | null) => void;
+  setControlPressed: (pressed: boolean) => void;
   selectQuestion: (id: string | null) => void;
   selectAnnotation: (id: string | null, type: 'question' | 'answer' | 'correction' | null) => void;
   setHoveredAnnotation: (id: string | null) => void;
@@ -82,6 +84,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   isDrawing: false,
   activeHotkey: null,
+  isControlPressed: false,
   currentPoints: [],
   drawingImageId: null,
 
@@ -104,6 +107,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   setAnnotationMode: (mode) => set({ annotationMode: mode }),
   
   setActiveHotkey: (key) => set({ activeHotkey: key }),
+
+  setControlPressed: (pressed) => set({ isControlPressed: pressed }),
 
   selectQuestion: (id) =>
     set({

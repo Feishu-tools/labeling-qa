@@ -23,7 +23,7 @@ import { FileUp } from 'lucide-react';
 import { importFromJsonFile } from '../../utils/storage';
 
 /** 可排序的页面包装器 */
-function SortablePageItem({ image, index }: { image: ExamImage; index: number }) {
+function SortablePageItem({ image, index, isControlPressed }: { image: ExamImage; index: number; isControlPressed: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: image.id,
   });
@@ -33,21 +33,37 @@ function SortablePageItem({ image, index }: { image: ExamImage; index: number })
     transition,
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 10 : 1,
+    cursor: isControlPressed ? 'grab' : 'default',
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="sortable-page-item">
-      {/* 拖拽把手 */}
-      <div className="drag-handle" {...attributes} {...listeners} title="拖拽排序">
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-          <circle cx="3" cy="3" r="1.2" />
-          <circle cx="9" cy="3" r="1.2" />
-          <circle cx="3" cy="6" r="1.2" />
-          <circle cx="9" cy="6" r="1.2" />
-          <circle cx="3" cy="9" r="1.2" />
-          <circle cx="9" cy="9" r="1.2" />
-        </svg>
-      </div>
+    <div ref={setNodeRef} style={style} className="sortable-page-item" {...(isControlPressed ? attributes : {})} {...(isControlPressed ? listeners : {})}>
+      {/* 始终渲染拖拽把手，当没有按 control 时可以通过它拖拽 */}
+      {!isControlPressed && (
+        <div className="drag-handle" {...attributes} {...listeners} title="拖拽排序">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+            <circle cx="3" cy="3" r="1.2" />
+            <circle cx="9" cy="3" r="1.2" />
+            <circle cx="3" cy="6" r="1.2" />
+            <circle cx="9" cy="6" r="1.2" />
+            <circle cx="3" cy="9" r="1.2" />
+            <circle cx="9" cy="9" r="1.2" />
+          </svg>
+        </div>
+      )}
+      {/* 当按住 control 时，为了视觉提示，直接显示把手图标但不再需要单独绑事件 */}
+      {isControlPressed && (
+        <div className="drag-handle" title="按住 Control 全局拖拽" style={{ opacity: 1 }}>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+            <circle cx="3" cy="3" r="1.2" />
+            <circle cx="9" cy="3" r="1.2" />
+            <circle cx="3" cy="6" r="1.2" />
+            <circle cx="9" cy="6" r="1.2" />
+            <circle cx="3" cy="9" r="1.2" />
+            <circle cx="9" cy="9" r="1.2" />
+          </svg>
+        </div>
+      )}
       <PageImage image={image} index={index} />
     </div>
   );
@@ -55,7 +71,7 @@ function SortablePageItem({ image, index }: { image: ExamImage; index: number })
 
 export default function AnnotationCanvas() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const { examData, zoom, reorderImages, isDrawing, finishDrawing, cancelDrawing, loadExamData, showToast, setActiveHotkey, setAnnotationMode } = useAppStore();
+  const { examData, zoom, reorderImages, isDrawing, finishDrawing, cancelDrawing, loadExamData, showToast, setActiveHotkey, setAnnotationMode, setControlPressed, isControlPressed } = useAppStore();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -96,6 +112,10 @@ export default function AnnotationCanvas() {
         return;
       }
       
+      if (e.key === 'Control' || e.key === 'Meta') {
+        setControlPressed(true);
+      }
+
       if (e.code === 'Space') {
         e.preventDefault(); // 阻止页面滚动
         const state = useAppStore.getState();
@@ -129,6 +149,10 @@ export default function AnnotationCanvas() {
         return;
       }
       
+      if (e.key === 'Control' || e.key === 'Meta') {
+        setControlPressed(false);
+      }
+
       if (e.key === '1' || e.key === '2' || e.key === '3') {
         const state = useAppStore.getState();
         // 松开快捷键时结束绘制
@@ -148,7 +172,7 @@ export default function AnnotationCanvas() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isDrawing, finishDrawing, cancelDrawing, setActiveHotkey]);
+  }, [isDrawing, finishDrawing, cancelDrawing, setActiveHotkey, setControlPressed]);
 
   const handleImport = async () => {
     try {
@@ -198,7 +222,7 @@ export default function AnnotationCanvas() {
               }}
             >
               {examData.images.map((image, index) => (
-                <SortablePageItem key={image.id} image={image} index={index} />
+                <SortablePageItem key={image.id} image={image} index={index} isControlPressed={isControlPressed} />
               ))}
             </div>
           </SortableContext>

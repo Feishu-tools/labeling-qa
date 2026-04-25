@@ -12,7 +12,7 @@ import {
   ChevronRight,
   Layers,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 export default function AnnotationPanel() {
   const {
@@ -20,6 +20,7 @@ export default function AnnotationPanel() {
     annotationMode,
     selectedQuestionId,
     selectedAnnotationId,
+    hoveredAnnotationId,
     selectQuestion,
     selectAnnotation,
     setHoveredAnnotation,
@@ -29,6 +30,17 @@ export default function AnnotationPanel() {
   } = useAppStore();
 
   const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(new Set());
+
+  // 获取当前悬停的标注所属的题目 ID
+  const hoveredQuestionId = useMemo(() => {
+    if (!hoveredAnnotationId) return null;
+    for (const q of examData.labels) {
+      if (q.question_id === hoveredAnnotationId) return q.question_id;
+      if (q.answer.some(a => a.id === hoveredAnnotationId)) return q.question_id;
+      if (q.correct.some(c => c.id === hoveredAnnotationId)) return q.question_id;
+    }
+    return null;
+  }, [hoveredAnnotationId, examData.labels]);
 
   const toggleExpanded = (qId: string) => {
     setExpandedQuestions((prev) => {
@@ -106,7 +118,7 @@ export default function AnnotationPanel() {
             return (
               <div
                 key={question.question_id}
-                className={`panel-question-group ${isSelectedQuestion ? 'panel-question-group--active' : ''}`}
+                className={`panel-question-group ${isSelectedQuestion ? 'panel-question-group--active' : ''} ${hoveredQuestionId === question.question_id && !isSelectedQuestion ? 'panel-question-group--hovered' : ''}`}
               >
                 {/* 题目行 */}
                 <div
