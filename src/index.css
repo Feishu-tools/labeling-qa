@@ -429,7 +429,7 @@ body {
 .page-number-badge {
   position: absolute;
   top: 8px;
-  left: 8px;
+  right: 8px;
   z-index: 4;
   padding: 2px 8px;
   border-radius: 4px;
@@ -441,9 +441,47 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.page-rotate-btn {
+.image-ignore-checkbox {
   position: absolute;
   top: 8px;
+  left: 8px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.65);
+  padding: 5px 10px;
+  border-radius: 6px;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: all 0.2s ease;
+}
+
+.image-ignore-checkbox input {
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  accent-color: #ef4444;
+}
+
+.image-ignore-checkbox:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.page-image-ignored {
+  opacity: 0.35;
+  filter: grayscale(100%);
+  transition: all 0.3s ease;
+  pointer-events: none; /* 变暗后禁止画图交互 */
+}
+
+.page-rotate-btn {
+  position: absolute;
+  bottom: 8px;
   right: 8px;
   z-index: 4;
   display: flex;

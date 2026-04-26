@@ -45,6 +45,7 @@ export default function PageImage({ image, index }: PageImageProps) {
     setHoveredAnnotation,
     setHoveredImage,
     setAnnotationMode,
+    toggleImageIgnored,
   } = useAppStore();
 
   // 获取图片实际渲染尺寸
@@ -214,6 +215,20 @@ export default function PageImage({ image, index }: PageImageProps) {
       {/* 页码标签 */}
       <div className="page-number-badge">{index + 1}</div>
 
+      {/* 作废图片勾选框 */}
+      <label
+        className="image-ignore-checkbox"
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <input
+          type="checkbox"
+          checked={!!image.ignored}
+          onChange={() => toggleImageIgnored(image.id)}
+        />
+        <span>{image.ignored ? '已作废' : '作废该页'}</span>
+      </label>
+
       {/* 旋转按钮 */}
       {isHovered && (
         <button
@@ -230,7 +245,7 @@ export default function PageImage({ image, index }: PageImageProps) {
 
       {/* 图片 + SVG 叠加层 */}
       <div
-        className="page-image-wrapper"
+        className={`page-image-wrapper ${image.ignored ? 'page-image-ignored' : ''}`}
         style={isRotated90 ? { aspectRatio: `${imgSize.h || 3} / ${imgSize.w || 4}` } : undefined}
       >
         <div className="page-image-inner" style={rotationStyle}>

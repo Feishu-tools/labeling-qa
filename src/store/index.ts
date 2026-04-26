@@ -84,6 +84,7 @@ interface AppState {
   // 页面操作
   reorderImages: (fromIndex: number, toIndex: number) => void;
   rotateImage: (imageId: string) => void;
+  toggleImageIgnored: (imageId: string) => void; // 增加切换图片作废状态的方法
 
   // 标注操作
   deleteQuestion: (questionId: string) => void;
@@ -409,6 +410,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { examData } = get();
     const newImages = examData.images.map((img: ExamImage) =>
       img.id === imageId ? { ...img, rotation: (img.rotation + 90) % 360 } : img
+    );
+    const newData = { ...examData, images: newImages };
+    set({ examData: newData, hasUnsavedChanges: true });
+    saveToLocalStorage(newData);
+  },
+
+  toggleImageIgnored: (imageId) => {
+    const { examData } = get();
+    const newImages = examData.images.map((img: ExamImage) =>
+      img.id === imageId ? { ...img, ignored: !img.ignored } : img
     );
     const newData = { ...examData, images: newImages };
     set({ examData: newData, hasUnsavedChanges: true });

@@ -42,6 +42,7 @@ export interface ExamImage {
   id: string;
   url: string;
   rotation: number; // 0 | 90 | 180 | 270
+  ignored?: boolean; // 新增：是否作废/不需要这张图片
 }
 
 /** 试卷数据 (导入/导出格式) */
