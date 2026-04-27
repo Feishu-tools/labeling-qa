@@ -151,6 +151,9 @@ export default function AnnotationCanvas() {
         setLocalActiveKey('space');
       } else if (keyStr === 'control' || keyStr === 'meta') {
         setLocalActiveKey('ctrl');
+      } else if (keyStr === 't') {
+        setLocalActiveKey('t');
+        useAppStore.getState().setTPressed(true);
       } else {
         setLocalActiveKey(keyStr);
       }
@@ -240,6 +243,9 @@ export default function AnnotationCanvas() {
         setLocalActiveKey((prev) => prev === 'space' ? null : prev);
       } else if (keyStr === 'control' || keyStr === 'meta') {
         setLocalActiveKey((prev) => prev === 'ctrl' ? null : prev);
+      } else if (keyStr === 't') {
+        setLocalActiveKey((prev) => prev === 't' ? null : prev);
+        useAppStore.getState().setTPressed(false);
       } else {
         setLocalActiveKey((prev) => prev === keyStr ? null : prev);
       }
@@ -314,6 +320,7 @@ export default function AnnotationCanvas() {
         <div className={`hotkey-item ${activeKey === '1' ? 'active' : ''}`}><kbd>1</kbd> <span className="text-blue-400">题目</span></div>
         <div className={`hotkey-item ${activeKey === '2' ? 'active' : ''}`}><kbd>2</kbd> <span className="text-emerald-400">答案</span></div>
         <div className={`hotkey-item ${activeKey === '3' ? 'active' : ''}`}><kbd>3</kbd> <span className="text-orange-400">批改</span></div>
+        <div className={`hotkey-item ${activeKey === 't' ? 'active' : ''}`}><kbd>T</kbd> <span>重构为新题</span></div>
         <div className={`hotkey-item ${activeKey === 'e' ? 'active' : ''}`}><kbd>E</kbd> <span>旋转</span></div>
         <div className={`hotkey-item ${activeKey === 'r' ? 'active' : ''}`}><kbd>R</kbd> <span>撤销</span></div>
         {(isFeishuEnv || useAppStore.getState().isOpenApiMode) && (

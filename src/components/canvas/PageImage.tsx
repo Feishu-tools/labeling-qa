@@ -46,6 +46,8 @@ export default function PageImage({ image, index }: PageImageProps) {
     setHoveredImage,
     setAnnotationMode,
     toggleImageIgnored,
+    isTPressed,
+    detachAnnotationToNewGroup,
   } = useAppStore();
 
   // 获取图片实际渲染尺寸
@@ -90,22 +92,25 @@ export default function PageImage({ image, index }: PageImageProps) {
       if (e.button !== 0) return;
       
       // 只有在画图模式下点击空白处才开始画图或加点
-      if (annotationMode !== 'select') {
+      if (annotationMode !== 'select' && !isTPressed) {
         try {
-          e.currentTarget.setPointerCapture(e.pointerId);
-        } catch (e) {}
-        const point = getImageCoords(e);
-        if (point) {
-          if (!isDrawing) {
-            startDrawing(image.id, point);
-          } else if (drawingImageId === image.id) {
-            addDrawingPoint(point);
+            e.currentTarget.setPointerCapture(e.pointerId);
+          } catch (e) {}
+          const point = getImageCoords(e);
+          if (point) {
+            if (!isDrawing) {
+              startDrawing(image.id, point);
+            } else if (drawingImageId === image.id) {
+              addDrawingPoint(point);
+            } else if (currentPoints.length === 0) {
+              // 修复串扰：如果按下了快捷键但还没点任何点，鼠标移到了另一张图片上点击，应该切换到这张图片开始画
+              startDrawing(image.id, point);
+            }
           }
         }
-      }
     },
-    [getImageCoords, image.id, isDrawing, drawingImageId, startDrawing, addDrawingPoint, annotationMode]
-  );
+      [getImageCoords, image.id, isDrawing, drawingImageId, currentPoints.length, startDrawing, addDrawingPoint, annotationMode, isTPressed]
+    );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
@@ -136,6 +141,7 @@ export default function PageImage({ image, index }: PageImageProps) {
     polygon: Point[];
     questionId: string;
     label: string;
+    locIndex?: number;
   }[] = [];
 
   // 获取当前悬停的多边形所属的题目 ID
@@ -150,7 +156,7 @@ export default function PageImage({ image, index }: PageImageProps) {
   }, [hoveredAnnotationId, examData.labels]);
 
   examData.labels.forEach((q, qi) => {
-    q.location.forEach((loc) => {
+    q.location.forEach((loc, locIndex) => {
       if (loc.image_id === image.id) {
         polygons.push({
           id: q.question_id,
@@ -158,6 +164,7 @@ export default function PageImage({ image, index }: PageImageProps) {
           polygon: loc.polygon,
           questionId: q.question_id,
           label: `Q${qi + 1}`,
+          locIndex,
         });
       }
     });
@@ -188,6 +195,11 @@ export default function PageImage({ image, index }: PageImageProps) {
       });
     });
   });
+
+  // 修复图层遮挡问题：SVG 没有 z-index，后渲染的在最上层。
+  // 排序规则：question (最底层) -> answer -> correction (最上层)
+  const typeOrder = { question: 0, answer: 1, correction: 2 };
+  polygons.sort((a, b) => typeOrder[a.type] - typeOrder[b.type]);
 
   // 判断是否是旋转了 90° 或 270° — 需要交换宽高
   const isRotated90 = image.rotation === 90 || image.rotation === 270;
@@ -269,7 +281,7 @@ export default function PageImage({ image, index }: PageImageProps) {
               onDoubleClick={handleDoubleClick}
               style={{
                 touchAction: 'none',
-                cursor: isDrawing ? getCustomCursor(annotationMode) : 'default',
+                cursor: isTPressed ? 'pointer' : isDrawing ? getCustomCursor(annotationMode) : 'default',
               }}
             >
               {/* 透明的背景矩形，确保整个画布能响应指针事件 */}
@@ -283,7 +295,7 @@ export default function PageImage({ image, index }: PageImageProps) {
               />
 
               {/* 已有标注 */}
-              {polygons.map((p) => {
+              {polygons.map((p, polygonIndex) => {
                 // 判断当前多边形是否属于被选中的题目组
                 const isGroupSelected = selectedQuestionId === p.questionId;
                 
@@ -317,7 +329,7 @@ export default function PageImage({ image, index }: PageImageProps) {
                 }
 
                 return (
-                  <g key={`${p.id}-${p.polygon.length}`}>
+                  <g key={`${p.id}-loc${polygonIndex}`}>
                     <path
                       d={polygonToSvgPath(p.polygon)}
                       fill={colors.fill}
@@ -328,6 +340,13 @@ export default function PageImage({ image, index }: PageImageProps) {
                       className={`polygon-path ${isSelected ? 'polygon-selected' : ''} ${isHoveredGroup ? 'polygon-hovered' : ''}`}
                       onPointerDown={(e) => {
                         e.stopPropagation();
+                        
+                        // 处理按下 T 键的分离逻辑
+                        if (isTPressed) {
+                          detachAnnotationToNewGroup(p.id, p.type, p.questionId, p.locIndex);
+                          return;
+                        }
+
                         // 只有在选择模式下，点击已有的标注才会被选中
                         if (annotationMode === 'select') {
                           selectAnnotation(p.id, p.type);
@@ -344,12 +363,12 @@ export default function PageImage({ image, index }: PageImageProps) {
                         }
                       }}
                       onMouseEnter={() => {
-                        if (annotationMode === 'select') setHoveredAnnotation(p.id);
+                        if (annotationMode === 'select' || isTPressed) setHoveredAnnotation(p.id);
                       }}
                       onMouseLeave={() => {
-                        if (annotationMode === 'select') setHoveredAnnotation(null);
+                        if (annotationMode === 'select' || isTPressed) setHoveredAnnotation(null);
                       }}
-                      style={{ pointerEvents: annotationMode === 'select' ? 'all' : 'none' }}
+                      style={{ pointerEvents: (annotationMode === 'select' || isTPressed) ? 'all' : 'none' }}
                     />
                     {/* Label */}
                     {p.polygon.length > 0 && showLabels && (

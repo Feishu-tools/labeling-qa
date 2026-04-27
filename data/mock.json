@@ -1,20 +1,460 @@
 {
     "images": [
         {
-            "id": "img_0",
-            "url": "https://algo-public.s3.cn-north-1.amazonaws.com.cn/feishu/markup-000311.jpg",
-            "rotation": 0
+            "id": "img_1",
+            "url": "https://algo-public-resource-1304723229.cos.ap-beijing.myqcloud.com/exam-parse/train-data/answers/answer_U2.png",
+            "rotation": 270
         },
         {
-            "id": "img_1",
-            "url": "https://algo-public.s3.cn-north-1.amazonaws.com.cn/feishu/markup-000312.jpg",
-            "rotation": 0
+            "id": "img_0",
+            "url": "https://algo-public-resource-1304723229.cos.ap-beijing.myqcloud.com/exam-parse/train-data/answers/answer_T2.png",
+            "rotation": 180
         },
         {
             "id": "img_2",
-            "url": "https://algo-public.s3.cn-north-1.amazonaws.com.cn/feishu/markup-000313.jpg",
-            "rotation": 0
+            "url": "https://algo-public-resource-1304723229.cos.ap-beijing.myqcloud.com/exam-parse/train-data/answers/answer_V2.png",
+            "rotation": 180
         }
     ],
-    "labels": []
+    "labels": [
+        {
+            "question_id": "q_1777146399875_netiju",
+            "question_text": "",
+            "location": [
+                {
+                    "image_id": "img_1",
+                    "polygon": [
+                        [
+                            1227,
+                            308
+                        ],
+                        [
+                            1073,
+                            308
+                        ],
+                        [
+                            1080,
+                            1152
+                        ],
+                        [
+                            1254,
+                            1133
+                        ]
+                    ]
+                }
+            ],
+            "answer": [],
+            "correct": []
+        },
+        {
+            "question_id": "q_1777146406555_ke4k41",
+            "question_text": "",
+            "location": [
+                {
+                    "image_id": "img_1",
+                    "polygon": [
+                        [
+                            1049,
+                            319
+                        ],
+                        [
+                            906,
+                            319
+                        ],
+                        [
+                            905,
+                            596
+                        ],
+                        [
+                            1004,
+                            602
+                        ],
+                        [
+                            1012,
+                            1026
+                        ],
+                        [
+                            1067,
+                            1029
+                        ]
+                    ]
+                }
+            ],
+            "answer": [],
+            "correct": []
+        },
+        {
+            "question_id": "q_1777146412150_b9qzd6",
+            "question_text": "",
+            "location": [
+                {
+                    "image_id": "img_1",
+                    "polygon": [
+                        [
+                            806,
+                            336
+                        ],
+                        [
+                            740,
+                            336
+                        ],
+                        [
+                            740,
+                            707
+                        ],
+                        [
+                            798,
+                            708
+                        ]
+                    ]
+                }
+            ],
+            "answer": [
+                {
+                    "id": "a_1777146418825_ekaslo",
+                    "answer_text": "",
+                    "location": [
+                        {
+                            "image_id": "img_1",
+                            "polygon": [
+                                [
+                                    791,
+                                    477
+                                ],
+                                [
+                                    759,
+                                    481
+                                ],
+                                [
+                                    759,
+                                    542
+                                ],
+                                [
+                                    793,
+                                    542
+                                ]
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "correct": []
+        },
+        {
+            "question_id": "q_1777146425006_hk50ac",
+            "question_text": "",
+            "location": [
+                {
+                    "image_id": "img_1",
+                    "polygon": [
+                        [
+                            798,
+                            721
+                        ],
+                        [
+                            741,
+                            722
+                        ],
+                        [
+                            736,
+                            1173
+                        ],
+                        [
+                            784,
+                            1165
+                        ]
+                    ]
+                }
+            ],
+            "answer": [],
+            "correct": []
+        },
+        {
+            "question_id": "q_1777146437888_1xxptq",
+            "question_text": "",
+            "location": [
+                {
+                    "image_id": "img_1",
+                    "polygon": [
+                        [
+                            713,
+                            341
+                        ],
+                        [
+                            671,
+                            341
+                        ],
+                        [
+                            670,
+                            701
+                        ],
+                        [
+                            714,
+                            701
+                        ]
+                    ]
+                }
+            ],
+            "answer": [],
+            "correct": []
+        },
+        {
+            "question_id": "q_1777146447075_dh7fhb",
+            "question_text": "",
+            "location": [
+                {
+                    "image_id": "img_1",
+                    "polygon": [
+                        [
+                            632,
+                            333
+                        ],
+                        [
+                            67,
+                            335
+                        ],
+                        [
+                            45,
+                            1086
+                        ],
+                        [
+                            638,
+                            1182
+                        ]
+                    ]
+                },
+                {
+                    "image_id": "img_0",
+                    "polygon": [
+                        [
+                            1505,
+                            1040
+                        ],
+                        [
+                            1520,
+                            37
+                        ],
+                        [
+                            913,
+                            50
+                        ],
+                        [
+                            916,
+                            1049
+                        ]
+                    ]
+                }
+            ],
+            "answer": [
+                {
+                    "id": "a_1777146455962_1wxuh4",
+                    "answer_text": "",
+                    "location": [
+                        {
+                            "image_id": "img_1",
+                            "polygon": [
+                                [
+                                    591,
+                                    350
+                                ],
+                                [
+                                    507,
+                                    350
+                                ],
+                                [
+                                    473,
+                                    406
+                                ],
+                                [
+                                    256,
+                                    447
+                                ],
+                                [
+                                    263,
+                                    597
+                                ],
+                                [
+                                    448,
+                                    664
+                                ],
+                                [
+                                    604,
+                                    636
+                                ]
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "a_1777146463241_5nrqr3",
+                    "answer_text": "",
+                    "location": [
+                        {
+                            "image_id": "img_1",
+                            "polygon": [
+                                [
+                                    616,
+                                    702
+                                ],
+                                [
+                                    173,
+                                    765
+                                ],
+                                [
+                                    181,
+                                    941
+                                ],
+                                [
+                                    496,
+                                    938
+                                ],
+                                [
+                                    633,
+                                    929
+                                ]
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "a_1777146466733_php5kg",
+                    "answer_text": "",
+                    "location": [
+                        {
+                            "image_id": "img_1",
+                            "polygon": [
+                                [
+                                    619,
+                                    976
+                                ],
+                                [
+                                    505,
+                                    975
+                                ],
+                                [
+                                    514,
+                                    1126
+                                ],
+                                [
+                                    635,
+                                    1151
+                                ]
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "a_1777262206665_czspzd",
+                    "answer_text": "",
+                    "location": [
+                        {
+                            "image_id": "img_0",
+                            "polygon": [
+                                [
+                                    1421,
+                                    884
+                                ],
+                                [
+                                    1421,
+                                    769
+                                ],
+                                [
+                                    970,
+                                    817
+                                ],
+                                [
+                                    971,
+                                    926
+                                ]
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "correct": [
+                {
+                    "id": "c_1777146478761_8cvm6r",
+                    "correct_text": "",
+                    "location": [
+                        {
+                            "image_id": "img_1",
+                            "polygon": [
+                                [
+                                    259,
+                                    403
+                                ],
+                                [
+                                    183,
+                                    406
+                                ],
+                                [
+                                    151,
+                                    439
+                                ],
+                                [
+                                    77,
+                                    433
+                                ],
+                                [
+                                    68,
+                                    597
+                                ],
+                                [
+                                    267,
+                                    636
+                                ]
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "c_1777146489891_vjasfg",
+                    "correct_text": "",
+                    "location": [
+                        {
+                            "image_id": "img_1",
+                            "polygon": [
+                                [
+                                    264,
+                                    672
+                                ],
+                                [
+                                    131,
+                                    651
+                                ],
+                                [
+                                    54,
+                                    719
+                                ],
+                                [
+                                    31,
+                                    907
+                                ],
+                                [
+                                    54,
+                                    1078
+                                ],
+                                [
+                                    99,
+                                    1083
+                                ],
+                                [
+                                    115,
+                                    927
+                                ],
+                                [
+                                    164,
+                                    863
+                                ],
+                                [
+                                    237,
+                                    826
+                                ]
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
 }

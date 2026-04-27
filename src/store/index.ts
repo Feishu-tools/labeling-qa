@@ -35,6 +35,8 @@ interface AppState {
   isDrawing: boolean;
   activeHotkey: '1' | '2' | '3' | '`' | null; // 记录当前按下的热键
   isControlPressed: boolean; // 是否按下了 Control 键
+  isTPressed: boolean; // 是否按下了 T 键
+  reconstructTargetId: string | null; // 记录当前 T 键重构正在累加的目标题目 ID
   showLabels: boolean; // 是否显示画布上的标签文字
   showPanel: boolean; // 是否显示右侧标注列表面板
   currentPoints: Point[];
@@ -63,6 +65,7 @@ interface AppState {
   setAnnotationMode: (mode: AnnotationMode) => void;
   setActiveHotkey: (key: '1' | '2' | '3' | '`' | null) => void;
   setControlPressed: (pressed: boolean) => void;
+  setTPressed: (pressed: boolean) => void;
   toggleShowLabels: () => void;
   toggleShowPanel: () => void;
   selectQuestion: (id: string | null) => void;
@@ -87,6 +90,7 @@ interface AppState {
   toggleImageIgnored: (imageId: string) => void; // 增加切换图片作废状态的方法
 
   // 标注操作
+  detachAnnotationToNewGroup: (annotationId: string, type: 'question' | 'answer' | 'correction', originalQuestionId: string, locIndex?: number) => void;
   deleteQuestion: (questionId: string) => void;
   deleteAnswer: (questionId: string, answerId: string) => void;
   deleteCorrection: (questionId: string, correctionId: string) => void;
@@ -120,6 +124,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   isDrawing: false,
   activeHotkey: null,
   isControlPressed: false,
+  isTPressed: false,
+  reconstructTargetId: null,
   showLabels: false, // 默认隐藏
   showPanel: false, // 默认隐藏右侧面板
   currentPoints: [],
@@ -162,6 +168,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setControlPressed: (pressed) => set({ isControlPressed: pressed }),
 
+  setTPressed: (pressed) => {
+    set({ isTPressed: pressed });
+    // 如果松开了 T 键，清除累加目标，下一次按 T 键会创建新题目
+    if (!pressed) {
+      set({ reconstructTargetId: null });
+    }
+  },
+
   toggleShowLabels: () => set((state) => ({ showLabels: !state.showLabels })),
 
   toggleShowPanel: () => set((state) => ({ showPanel: !state.showPanel })),
@@ -174,23 +188,27 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
 
   selectAnnotation: (id, type) =>
-    set({
-      selectedAnnotationId: id,
-      selectedAnnotationType: type,
+    set((state) => {
+      const newState: Partial<AppState> = {
+        selectedAnnotationId: id,
+        selectedAnnotationType: type,
+      };
+      
       // 如果选中的是答案或批改，自动选中所属题目
-      ...(type === 'answer' || type === 'correction'
-        ? (() => {
-            const state = get();
-            const question = state.examData.labels.find((q) =>
-              type === 'answer'
-                ? q.answer.some((a) => a.id === id)
-                : q.correct.some((c) => c.id === id)
-            );
-            return question ? { selectedQuestionId: question.question_id } : {};
-          })()
-        : type === 'question'
-          ? { selectedQuestionId: id }
-          : {}),
+      if (type === 'answer' || type === 'correction') {
+        const question = state.examData.labels.find((q) =>
+          type === 'answer'
+            ? q.answer.some((a) => a.id === id)
+            : q.correct.some((c) => c.id === id)
+        );
+        if (question) {
+          newState.selectedQuestionId = question.question_id;
+        }
+      } else if (type === 'question') {
+        newState.selectedQuestionId = id;
+      }
+      
+      return newState;
     }),
 
   setHoveredAnnotation: (id) => set({ hoveredAnnotationId: id }),
@@ -427,6 +445,101 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   // ---- 标注操作 ----
+
+  detachAnnotationToNewGroup: (annotationId, type, originalQuestionId, locIndex) => {
+    const { examData, undoHistory, reconstructTargetId } = get();
+    const newLabels = [...examData.labels];
+    const originalQIndex = newLabels.findIndex(q => q.question_id === originalQuestionId);
+    if (originalQIndex === -1) return;
+
+    // 如果点击的是已经被重构到目标题目里的框，就不做处理
+    if (originalQuestionId === reconstructTargetId) return;
+
+    const originalQ = { ...newLabels[originalQIndex] };
+    const nextUndoHistory = [...undoHistory, examData].slice(-20);
+
+    let targetQuestionId = reconstructTargetId;
+    let targetQIndex = targetQuestionId ? newLabels.findIndex(q => q.question_id === targetQuestionId) : -1;
+    let targetQuestion: QuestionAnnotation;
+
+    if (targetQIndex !== -1) {
+      // 累加到已有的重构题目上
+      targetQuestion = { ...newLabels[targetQIndex] };
+    } else {
+      // 创建新的重构题目
+      targetQuestionId = generateId('q');
+      targetQuestion = {
+        question_id: targetQuestionId,
+        question_text: '',
+        location: [],
+        answer: [],
+        correct: [],
+      };
+    }
+
+    let extractedLocations: AnnotationLocation[] = [];
+    let extractedAnswer: any = null;
+    let extractedCorrection: any = null;
+
+    if (type === 'question' && locIndex !== undefined) {
+      const locToMove = originalQ.location[locIndex];
+      if (!locToMove) return;
+      originalQ.location = originalQ.location.filter((_, i) => i !== locIndex);
+      extractedLocations = [locToMove];
+    } else if (type === 'answer') {
+      const ansIndex = originalQ.answer.findIndex(a => a.id === annotationId);
+      if (ansIndex === -1) return;
+      const ansToMove = originalQ.answer[ansIndex];
+      originalQ.answer = originalQ.answer.filter(a => a.id !== annotationId);
+      extractedAnswer = ansToMove;
+    } else if (type === 'correction') {
+      const corrIndex = originalQ.correct.findIndex(c => c.id === annotationId);
+      if (corrIndex === -1) return;
+      const corrToMove = originalQ.correct[corrIndex];
+      originalQ.correct = originalQ.correct.filter(c => c.id !== annotationId);
+      extractedCorrection = corrToMove;
+    }
+
+    // 将提取出的框按类别累加到目标题目中
+    if (extractedLocations.length > 0) {
+      targetQuestion.location = [...targetQuestion.location, ...extractedLocations];
+    }
+    if (extractedAnswer) {
+      targetQuestion.answer = [...targetQuestion.answer, extractedAnswer];
+    }
+    if (extractedCorrection) {
+      targetQuestion.correct = [...targetQuestion.correct, extractedCorrection];
+    }
+
+    newLabels[originalQIndex] = originalQ;
+    
+    if (targetQIndex !== -1) {
+      newLabels[targetQIndex] = targetQuestion;
+    } else {
+      newLabels.push(targetQuestion);
+    }
+
+    // 如果分离后，原题目完全空了（没有题干、没有答案、没有批改），则删除它
+    if (originalQ.location.length === 0 && originalQ.answer.length === 0 && originalQ.correct.length === 0) {
+      const qIndexToRemove = newLabels.findIndex(q => q.question_id === originalQuestionId);
+      if (qIndexToRemove !== -1) {
+        newLabels.splice(qIndexToRemove, 1);
+      }
+    }
+
+    const newData = { ...examData, labels: newLabels };
+    set({
+      examData: newData,
+      undoHistory: nextUndoHistory,
+      hasUnsavedChanges: true,
+      selectedQuestionId: targetQuestionId,
+      selectedAnnotationId: targetQuestionId,
+      selectedAnnotationType: 'question',
+      reconstructTargetId: targetQuestionId, // 记录当前重构的目标
+    });
+    saveToLocalStorage(newData);
+    get().showToast(targetQIndex !== -1 ? '已追加到新题目' : '已重构为新题目');
+  },
 
   deleteQuestion: (questionId) => {
     const { examData, selectedQuestionId } = get();
