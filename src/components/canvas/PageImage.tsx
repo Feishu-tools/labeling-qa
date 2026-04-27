@@ -5,7 +5,7 @@ import { useRef, useCallback, useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '../../store';
 import type { Point, ExamImage } from '../../types';
 import { ANNOTATION_COLORS, ANNOTATION_COLORS_SELECTED } from '../../types';
-import { polygonToSvgPath } from '../../utils/geometry';
+import { polygonToSvgPath, getClosestEdge } from '../../utils/geometry';
 import { RotateCw } from 'lucide-react';
 
 const getCustomCursor = (mode: string) => {
@@ -24,6 +24,9 @@ export default function PageImage({ image, index }: PageImageProps) {
   const imgRef = useRef<HTMLImageElement>(null);
   const [imgSize, setImgSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   const [isHovered, setIsHovered] = useState(false);
+  const [draggedPointInfo, setDraggedPointInfo] = useState<{ id: string, type: 'question'|'answer'|'correction', locIndex?: number, pointIndex: number } | null>(null);
+  const [insertPointInfo, setInsertPointInfo] = useState<{ id: string, type: 'question'|'answer'|'correction', locIndex?: number, insertIndex: number, point: Point } | null>(null);
+  const [draggedPolygonInfo, setDraggedPolygonInfo] = useState<{ id: string, type: 'question'|'answer'|'correction', locIndex?: number, startPoint: Point, originalPolygon: Point[] } | null>(null);
 
   const {
     examData,
@@ -49,6 +52,7 @@ export default function PageImage({ image, index }: PageImageProps) {
     toggleImageIgnored,
     isWPressed,
     detachAnnotationToNewGroup,
+    updateAnnotationPolygon,
   } = useAppStore();
 
   // 获取图片实际渲染尺寸
@@ -113,16 +117,118 @@ export default function PageImage({ image, index }: PageImageProps) {
       [getImageCoords, image.id, isDrawing, drawingImageId, currentPoints.length, startDrawing, addDrawingPoint, annotationMode, isWPressed]
     );
 
+  // 收集当前页面的所有 polygon
+  const polygons: {
+    id: string;
+    type: 'question' | 'answer' | 'correction';
+    polygon: Point[];
+    questionId: string;
+    label: string;
+    locIndex?: number;
+  }[] = useMemo(() => {
+    const result: any[] = [];
+    examData.labels.forEach((q, qi) => {
+      q.location.forEach((loc, locIndex) => {
+        if (loc.image_id === image.id) {
+          result.push({ id: q.question_id, type: 'question', polygon: loc.polygon, questionId: q.question_id, label: `Q${qi + 1}`, locIndex });
+        }
+      });
+      q.answer.forEach((a, ai) => {
+        a.location.forEach((loc) => {
+          if (loc.image_id === image.id) {
+            result.push({ id: a.id, type: 'answer', polygon: loc.polygon, questionId: q.question_id, label: `Q${qi + 1}-A${ai + 1}` });
+          }
+        });
+      });
+      q.correct.forEach((c, ci) => {
+        c.location.forEach((loc) => {
+          if (loc.image_id === image.id) {
+            result.push({ id: c.id, type: 'correction', polygon: loc.polygon, questionId: q.question_id, label: `Q${qi + 1}-C${ci + 1}` });
+          }
+        });
+      });
+    });
+    const typeOrder = { question: 0, answer: 1, correction: 2 };
+    result.sort((a, b) => typeOrder[a.type] - typeOrder[b.type]);
+    return result;
+  }, [examData.labels, image.id]);
+
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
       const point = getImageCoords(e);
       if (!point) return;
 
-      if (!isDrawing || drawingImageId !== image.id) return;
-      updateHoverPoint(point);
+      if (isDrawing && drawingImageId === image.id) {
+        updateHoverPoint(point);
+        return;
+      }
+
+      if (draggedPointInfo) {
+        const { id, type, locIndex, pointIndex } = draggedPointInfo;
+        const p = polygons.find(p => p.id === id && p.locIndex === locIndex && p.type === type);
+        if (p) {
+          const newPolygon = [...p.polygon];
+          newPolygon[pointIndex] = point;
+          updateAnnotationPolygon(id, type, locIndex, newPolygon, false);
+        }
+        return;
+      }
+
+      if (draggedPolygonInfo) {
+        const { id, type, locIndex, startPoint, originalPolygon } = draggedPolygonInfo;
+        const dx = point[0] - startPoint[0];
+        const dy = point[1] - startPoint[1];
+        const newPolygon = originalPolygon.map(pt => [pt[0] + dx, pt[1] + dy] as Point);
+        updateAnnotationPolygon(id, type, locIndex, newPolygon, false);
+        return;
+      }
+
+      if (annotationMode === 'select' && selectedAnnotationId) {
+        let foundInsert = false;
+        for (const p of polygons) {
+          if (p.id === selectedAnnotationId && (p.type !== 'question' || selectedLocIndex === p.locIndex || selectedLocIndex === null)) {
+            const closest = getClosestEdge(point, p.polygon);
+            if (closest && closest.distance < 10) {
+              setInsertPointInfo({
+                id: p.id,
+                type: p.type,
+                locIndex: p.locIndex,
+                insertIndex: closest.index + 1,
+                point: closest.point
+              });
+              foundInsert = true;
+              break;
+            }
+          }
+        }
+        if (!foundInsert && insertPointInfo) {
+          setInsertPointInfo(null);
+        }
+      }
     },
-    [isDrawing, drawingImageId, image.id, getImageCoords, updateHoverPoint]
+    [isDrawing, drawingImageId, image.id, getImageCoords, updateHoverPoint, draggedPointInfo, draggedPolygonInfo, annotationMode, selectedAnnotationId, selectedLocIndex, polygons, insertPointInfo, updateAnnotationPolygon]
   );
+
+  const handlePointerUp = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
+    if (draggedPointInfo) {
+      const { id, type, locIndex } = draggedPointInfo;
+      const p = polygons.find(p => p.id === id && p.locIndex === locIndex && p.type === type);
+      if (p) {
+        updateAnnotationPolygon(id, type, locIndex, p.polygon, true);
+      }
+      setDraggedPointInfo(null);
+      try { (e.target as Element).releasePointerCapture(e.pointerId); } catch(e) {}
+    }
+    if (draggedPolygonInfo) {
+      const { id, type, locIndex } = draggedPolygonInfo;
+      const p = polygons.find(p => p.id === id && p.locIndex === locIndex && p.type === type);
+      if (p) {
+        updateAnnotationPolygon(id, type, locIndex, p.polygon, true);
+      }
+      setDraggedPolygonInfo(null);
+      try { (e.target as Element).releasePointerCapture(e.pointerId); } catch(e) {}
+    }
+  }, [draggedPointInfo, draggedPolygonInfo, polygons, updateAnnotationPolygon]);
 
   const handleDoubleClick = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
@@ -135,16 +241,6 @@ export default function PageImage({ image, index }: PageImageProps) {
     [isDrawing, drawingImageId, image.id, finishDrawing, setAnnotationMode]
   );
 
-  // 收集当前页面的所有 polygon
-  const polygons: {
-    id: string;
-    type: 'question' | 'answer' | 'correction';
-    polygon: Point[];
-    questionId: string;
-    label: string;
-    locIndex?: number;
-  }[] = [];
-
   // 获取当前悬停的多边形所属的题目 ID
   const hoveredQuestionId = useMemo(() => {
     if (!hoveredAnnotationId) return null;
@@ -155,52 +251,6 @@ export default function PageImage({ image, index }: PageImageProps) {
     }
     return null;
   }, [hoveredAnnotationId, examData.labels]);
-
-  examData.labels.forEach((q, qi) => {
-    q.location.forEach((loc, locIndex) => {
-      if (loc.image_id === image.id) {
-        polygons.push({
-          id: q.question_id,
-          type: 'question',
-          polygon: loc.polygon,
-          questionId: q.question_id,
-          label: `Q${qi + 1}`,
-          locIndex,
-        });
-      }
-    });
-    q.answer.forEach((a, ai) => {
-      a.location.forEach((loc) => {
-        if (loc.image_id === image.id) {
-          polygons.push({
-            id: a.id,
-            type: 'answer',
-            polygon: loc.polygon,
-            questionId: q.question_id,
-            label: `Q${qi + 1}-A${ai + 1}`,
-          });
-        }
-      });
-    });
-    q.correct.forEach((c, ci) => {
-      c.location.forEach((loc) => {
-        if (loc.image_id === image.id) {
-          polygons.push({
-            id: c.id,
-            type: 'correction',
-            polygon: loc.polygon,
-            questionId: q.question_id,
-            label: `Q${qi + 1}-C${ci + 1}`,
-          });
-        }
-      });
-    });
-  });
-
-  // 修复图层遮挡问题：SVG 没有 z-index，后渲染的在最上层。
-  // 排序规则：question (最底层) -> answer -> correction (最上层)
-  const typeOrder = { question: 0, answer: 1, correction: 2 };
-  polygons.sort((a, b) => typeOrder[a.type] - typeOrder[b.type]);
 
   // 判断是否是旋转了 90° 或 270° — 需要交换宽高
   const isRotated90 = image.rotation === 90 || image.rotation === 270;
@@ -274,12 +324,13 @@ export default function PageImage({ image, index }: PageImageProps) {
           {/* SVG overlay */}
           {imgSize.w > 0 && (
             <svg
-              className="page-svg-overlay"
-              viewBox={`0 0 ${imgSize.w} ${imgSize.h}`}
-              preserveAspectRatio="none"
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onDoubleClick={handleDoubleClick}
+                className="page-svg-overlay"
+                viewBox={`0 0 ${imgSize.w} ${imgSize.h}`}
+                preserveAspectRatio="none"
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onDoubleClick={handleDoubleClick}
               style={{
                 touchAction: 'none',
                 cursor: isWPressed ? 'pointer' : isDrawing ? getCustomCursor(annotationMode) : 'default',
@@ -352,6 +403,20 @@ export default function PageImage({ image, index }: PageImageProps) {
                         // 只有在选择模式下，点击已有的标注才会被选中
                         if (annotationMode === 'select') {
                           selectAnnotation(p.id, p.type, p.locIndex);
+                          
+                          if (isSelected) {
+                            const point = getImageCoords(e);
+                            if (point) {
+                              try { e.currentTarget.setPointerCapture(e.pointerId); } catch(e) {}
+                              setDraggedPolygonInfo({
+                                id: p.id,
+                                type: p.type,
+                                locIndex: p.locIndex,
+                                startPoint: point,
+                                originalPolygon: [...p.polygon]
+                              });
+                            }
+                          }
                         } else {
                           // 在画图模式下，点击已有标注框等同于在画布上打点
                           const point = getImageCoords(e);
@@ -389,6 +454,64 @@ export default function PageImage({ image, index }: PageImageProps) {
                   </g>
                 );
               })}
+
+              {/* 选中状态下的多边形编辑锚点 */}
+              {annotationMode === 'select' && selectedAnnotationId && polygons
+                .filter(p => p.id === selectedAnnotationId && (p.type !== 'question' || selectedLocIndex === p.locIndex || selectedLocIndex === null))
+                .map(p => (
+                  <g key={`edit-${p.id}-${p.locIndex}`}>
+                    {p.polygon.map((pt, i) => (
+                      <circle
+                        key={`pt-${i}`}
+                        cx={pt[0]}
+                        cy={pt[1]}
+                        r={4}
+                        fill="white"
+                        stroke={ANNOTATION_COLORS_SELECTED[p.type].stroke}
+                        strokeWidth={2}
+                        vectorEffect="non-scaling-stroke"
+                        style={{ cursor: 'move', pointerEvents: 'all' }}
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          try { e.currentTarget.setPointerCapture(e.pointerId); } catch(e) {}
+                          setDraggedPointInfo({
+                            id: p.id,
+                            type: p.type,
+                            locIndex: p.locIndex,
+                            pointIndex: i
+                          });
+                        }}
+                      />
+                    ))}
+                    {insertPointInfo && insertPointInfo.id === p.id && insertPointInfo.locIndex === p.locIndex && (
+                      <circle
+                        cx={insertPointInfo.point[0]}
+                        cy={insertPointInfo.point[1]}
+                        r={4}
+                        fill="white"
+                        stroke={ANNOTATION_COLORS_SELECTED[p.type].stroke}
+                        strokeWidth={2}
+                        vectorEffect="non-scaling-stroke"
+                        strokeDasharray="2 2"
+                        style={{ cursor: 'pointer', pointerEvents: 'all' }}
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          try { e.currentTarget.setPointerCapture(e.pointerId); } catch(e) {}
+                          const newPolygon = [...p.polygon];
+                          newPolygon.splice(insertPointInfo.insertIndex, 0, insertPointInfo.point);
+                          updateAnnotationPolygon(p.id, p.type, p.locIndex, newPolygon, false);
+                          setDraggedPointInfo({
+                            id: p.id,
+                            type: p.type,
+                            locIndex: p.locIndex,
+                            pointIndex: insertPointInfo.insertIndex
+                          });
+                          setInsertPointInfo(null);
+                        }}
+                      />
+                    )}
+                  </g>
+                ))}
 
               {/* 正在绘制的 polygon */}
               {isDrawing && drawingImageId === image.id && currentPoints.length > 0 && (

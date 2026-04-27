@@ -101,6 +101,40 @@ export function getPolygonBounds(polygon: Point[]): {
   return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
 }
 
+export function getClosestEdge(point: Point, polygon: Point[]): { index: number; point: Point; distance: number } | null {
+  if (polygon.length < 3) return null;
+  let minDistance = Infinity;
+  let closestEdgeIndex = -1;
+  let closestProjectedPoint: Point = [0, 0];
+
+  for (let i = 0; i < polygon.length; i++) {
+    const start = polygon[i];
+    const end = polygon[(i + 1) % polygon.length];
+    
+    const dx = end[0] - start[0];
+    const dy = end[1] - start[1];
+    
+    let projX = start[0];
+    let projY = start[1];
+    
+    if (dx !== 0 || dy !== 0) {
+      const t = ((point[0] - start[0]) * dx + (point[1] - start[1]) * dy) / (dx * dx + dy * dy);
+      const clampedT = Math.max(0, Math.min(1, t));
+      projX = start[0] + clampedT * dx;
+      projY = start[1] + clampedT * dy;
+    }
+    
+    const dist = Math.hypot(point[0] - projX, point[1] - projY);
+    if (dist < minDistance) {
+      minDistance = dist;
+      closestEdgeIndex = i;
+      closestProjectedPoint = [projX, projY];
+    }
+  }
+  
+  return { index: closestEdgeIndex, point: closestProjectedPoint, distance: minDistance };
+}
+
 /**
  * 计算两点之间的距离
  */

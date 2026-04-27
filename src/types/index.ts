@@ -62,12 +62,12 @@ export const ANNOTATION_COLORS: Record<
     label: '题目',
   },
   answer: {
-    fill: 'rgba(150, 246, 185, 0.26)',
-    stroke: 'rgba(131, 255, 177, 1)',
+    fill: 'rgba(51, 220, 113, 0.26)',
+    stroke: 'rgba(166, 245, 195, 1)',
     label: '答案',
   },
   correction: {
-    fill: 'rgba(252, 191, 148, 0.5)',
+    fill: 'rgba(242, 146, 77, 0.5)',
     stroke: 'rgba(241, 175, 128, 1)',
     label: '批改',
   },
@@ -79,15 +79,15 @@ export const ANNOTATION_COLORS_SELECTED: Record<
   { fill: string; stroke: string }
 > = {
   question: {
-    fill: 'rgba(161, 197, 255, 0.2)',
+    fill: 'rgba(81, 142, 240, 0.2)',
     stroke: 'rgba(122, 170, 249, 0.6)',
   },
   answer: {
-    fill: 'rgba(172, 243, 198, 0.23)',
+    fill: 'rgba(88, 250, 148, 0.23)',
     stroke: 'rgba(154, 248, 189, 0.53)',
   },
   correction: {
-    fill: 'rgba(252, 191, 148, 0.26)',
+    fill: 'rgba(245, 144, 71, 0.26)',
     stroke: 'rgba(252, 198, 160, 0.55)',
   },
 };

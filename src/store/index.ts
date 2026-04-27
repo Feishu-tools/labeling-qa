@@ -94,6 +94,7 @@ interface AppState {
   detachAnnotationToNewGroup: (annotationId: string, type: 'question' | 'answer' | 'correction', originalQuestionId: string, locIndex?: number) => void;
   deleteQuestion: (questionId: string) => void;
   deleteQuestionLocation: (questionId: string, locIndex: number) => void;
+  updateAnnotationPolygon: (id: string, type: 'question' | 'answer' | 'correction', locIndex: number | undefined, newPolygon: Point[], saveHistory?: boolean) => void;
   deleteAnswer: (questionId: string, answerId: string) => void;
   deleteCorrection: (questionId: string, correctionId: string) => void;
   updateQuestionText: (questionId: string, text: string) => void;
@@ -589,6 +590,62 @@ export const useAppStore = create<AppState>((set, get) => ({
         : {}),
     });
     saveToLocalStorage(newData);
+  },
+
+  updateAnnotationPolygon: (id, type, locIndex, newPolygon, saveHistory = false) => {
+    const { examData, undoHistory } = get();
+    const newLabels = [...examData.labels];
+    const nextUndoHistory = saveHistory ? [...undoHistory, examData].slice(-20) : undoHistory;
+
+    for (let i = 0; i < newLabels.length; i++) {
+      const q = { ...newLabels[i] };
+      let changed = false;
+
+      if (type === 'question' && q.question_id === id && locIndex !== undefined) {
+        const newLocs = [...q.location];
+        if (newLocs[locIndex]) {
+          newLocs[locIndex] = { ...newLocs[locIndex], polygon: newPolygon };
+          q.location = newLocs;
+          changed = true;
+        }
+      } else if (type === 'answer') {
+        const aIndex = q.answer.findIndex(a => a.id === id);
+        if (aIndex !== -1) {
+          const newAnswers = [...q.answer];
+          const ans = { ...newAnswers[aIndex] };
+          // 当前答案只有一个 location
+          ans.location = [{ ...ans.location[0], polygon: newPolygon }];
+          newAnswers[aIndex] = ans;
+          q.answer = newAnswers;
+          changed = true;
+        }
+      } else if (type === 'correction') {
+        const cIndex = q.correct.findIndex(c => c.id === id);
+        if (cIndex !== -1) {
+          const newCorrects = [...q.correct];
+          const corr = { ...newCorrects[cIndex] };
+          corr.location = [{ ...corr.location[0], polygon: newPolygon }];
+          newCorrects[cIndex] = corr;
+          q.correct = newCorrects;
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        newLabels[i] = q;
+        break;
+      }
+    }
+
+    const newData = { ...examData, labels: newLabels };
+    set({
+      examData: newData,
+      undoHistory: nextUndoHistory,
+      hasUnsavedChanges: true,
+    });
+    if (saveHistory) {
+      saveToLocalStorage(newData);
+    }
   },
 
   deleteAnswer: (questionId, answerId) => {
