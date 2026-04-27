@@ -32,8 +32,9 @@ export default function PageImage({ image, index }: PageImageProps) {
     currentPoints,
     hoverPoint,
     drawingImageId,
-    selectedAnnotationId,
     selectedQuestionId,
+    selectedAnnotationId,
+    selectedLocIndex,
     hoveredAnnotationId,
     showLabels,
     startDrawing,
@@ -46,7 +47,7 @@ export default function PageImage({ image, index }: PageImageProps) {
     setHoveredImage,
     setAnnotationMode,
     toggleImageIgnored,
-    isTPressed,
+    isWPressed,
     detachAnnotationToNewGroup,
   } = useAppStore();
 
@@ -92,7 +93,7 @@ export default function PageImage({ image, index }: PageImageProps) {
       if (e.button !== 0) return;
       
       // 只有在画图模式下点击空白处才开始画图或加点
-      if (annotationMode !== 'select' && !isTPressed) {
+      if (annotationMode !== 'select' && !isWPressed) {
         try {
             e.currentTarget.setPointerCapture(e.pointerId);
           } catch (e) {}
@@ -109,7 +110,7 @@ export default function PageImage({ image, index }: PageImageProps) {
           }
         }
     },
-      [getImageCoords, image.id, isDrawing, drawingImageId, currentPoints.length, startDrawing, addDrawingPoint, annotationMode, isTPressed]
+      [getImageCoords, image.id, isDrawing, drawingImageId, currentPoints.length, startDrawing, addDrawingPoint, annotationMode, isWPressed]
     );
 
   const handlePointerMove = useCallback(
@@ -281,7 +282,7 @@ export default function PageImage({ image, index }: PageImageProps) {
               onDoubleClick={handleDoubleClick}
               style={{
                 touchAction: 'none',
-                cursor: isTPressed ? 'pointer' : isDrawing ? getCustomCursor(annotationMode) : 'default',
+                cursor: isWPressed ? 'pointer' : isDrawing ? getCustomCursor(annotationMode) : 'default',
               }}
             >
               {/* 透明的背景矩形，确保整个画布能响应指针事件 */}
@@ -299,7 +300,8 @@ export default function PageImage({ image, index }: PageImageProps) {
                 // 判断当前多边形是否属于被选中的题目组
                 const isGroupSelected = selectedQuestionId === p.questionId;
                 
-                const isSelected = selectedAnnotationId === p.id;
+                // 判断当前多边形本身是否被精确选中 (题目需要匹配 locIndex)
+                const isSelected = selectedAnnotationId === p.id && (p.type !== 'question' || selectedLocIndex === p.locIndex || selectedLocIndex === null);
                 // 判断当前多边形是否属于被悬停的题目组
                 const isHoveredGroup = hoveredQuestionId === p.questionId;
                 
@@ -341,15 +343,15 @@ export default function PageImage({ image, index }: PageImageProps) {
                       onPointerDown={(e) => {
                         e.stopPropagation();
                         
-                        // 处理按下 T 键的分离逻辑
-                        if (isTPressed) {
+                        // 处理按下 W 键的分离逻辑
+                        if (isWPressed) {
                           detachAnnotationToNewGroup(p.id, p.type, p.questionId, p.locIndex);
                           return;
                         }
 
                         // 只有在选择模式下，点击已有的标注才会被选中
                         if (annotationMode === 'select') {
-                          selectAnnotation(p.id, p.type);
+                          selectAnnotation(p.id, p.type, p.locIndex);
                         } else {
                           // 在画图模式下，点击已有标注框等同于在画布上打点
                           const point = getImageCoords(e);
@@ -363,12 +365,12 @@ export default function PageImage({ image, index }: PageImageProps) {
                         }
                       }}
                       onMouseEnter={() => {
-                        if (annotationMode === 'select' || isTPressed) setHoveredAnnotation(p.id);
+                        if (annotationMode === 'select' || isWPressed) setHoveredAnnotation(p.id);
                       }}
                       onMouseLeave={() => {
-                        if (annotationMode === 'select' || isTPressed) setHoveredAnnotation(null);
+                        if (annotationMode === 'select' || isWPressed) setHoveredAnnotation(null);
                       }}
-                      style={{ pointerEvents: (annotationMode === 'select' || isTPressed) ? 'all' : 'none' }}
+                      style={{ pointerEvents: (annotationMode === 'select' || isWPressed) ? 'all' : 'none' }}
                     />
                     {/* Label */}
                     {p.polygon.length > 0 && showLabels && (

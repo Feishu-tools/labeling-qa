@@ -24,7 +24,8 @@ interface AppState {
   // ---- UI 状态 ----
   annotationMode: AnnotationMode;
   selectedQuestionId: string | null;
-  selectedAnnotationId: string | null; // answer/correction id
+  selectedAnnotationId: string | null; // id for answer/correction, or question_id
+  selectedLocIndex: number | null; // 记录题目中具体选中的题干框的索引
   selectedAnnotationType: 'question' | 'answer' | 'correction' | null;
   hoveredAnnotationId: string | null;
   hoveredImageId: string | null; // 记录当前鼠标悬停的图片 ID
@@ -35,8 +36,8 @@ interface AppState {
   isDrawing: boolean;
   activeHotkey: '1' | '2' | '3' | '`' | null; // 记录当前按下的热键
   isControlPressed: boolean; // 是否按下了 Control 键
-  isTPressed: boolean; // 是否按下了 T 键
-  reconstructTargetId: string | null; // 记录当前 T 键重构正在累加的目标题目 ID
+  isWPressed: boolean; // 是否按下了 W 键
+  reconstructTargetId: string | null; // 记录当前 W 键重构正在累加的目标题目 ID
   showLabels: boolean; // 是否显示画布上的标签文字
   showPanel: boolean; // 是否显示右侧标注列表面板
   currentPoints: Point[];
@@ -65,11 +66,11 @@ interface AppState {
   setAnnotationMode: (mode: AnnotationMode) => void;
   setActiveHotkey: (key: '1' | '2' | '3' | '`' | null) => void;
   setControlPressed: (pressed: boolean) => void;
-  setTPressed: (pressed: boolean) => void;
+  setWPressed: (pressed: boolean) => void;
   toggleShowLabels: () => void;
   toggleShowPanel: () => void;
   selectQuestion: (id: string | null) => void;
-  selectAnnotation: (id: string | null, type: 'question' | 'answer' | 'correction' | null) => void;
+  selectAnnotation: (id: string | null, type: 'question' | 'answer' | 'correction' | null, locIndex?: number) => void;
   setHoveredAnnotation: (id: string | null) => void;
   setHoveredImage: (id: string | null) => void;
   setZoom: (zoom: number) => void;
@@ -92,6 +93,7 @@ interface AppState {
   // 标注操作
   detachAnnotationToNewGroup: (annotationId: string, type: 'question' | 'answer' | 'correction', originalQuestionId: string, locIndex?: number) => void;
   deleteQuestion: (questionId: string) => void;
+  deleteQuestionLocation: (questionId: string, locIndex: number) => void;
   deleteAnswer: (questionId: string, answerId: string) => void;
   deleteCorrection: (questionId: string, correctionId: string) => void;
   updateQuestionText: (questionId: string, text: string) => void;
@@ -115,6 +117,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   annotationMode: 'select',
   selectedQuestionId: null,
   selectedAnnotationId: null,
+  selectedLocIndex: null,
   selectedAnnotationType: null,
   hoveredAnnotationId: null,
   hoveredImageId: null,
@@ -124,7 +127,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isDrawing: false,
   activeHotkey: null,
   isControlPressed: false,
-  isTPressed: false,
+  isWPressed: false,
   reconstructTargetId: null,
   showLabels: false, // 默认隐藏
   showPanel: false, // 默认隐藏右侧面板
@@ -168,9 +171,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setControlPressed: (pressed) => set({ isControlPressed: pressed }),
 
-  setTPressed: (pressed) => {
-    set({ isTPressed: pressed });
-    // 如果松开了 T 键，清除累加目标，下一次按 T 键会创建新题目
+  setWPressed: (pressed) => {
+    set({ isWPressed: pressed });
+    // 如果松开了 W 键，清除累加目标，下一次按 W 键会创建新题目
     if (!pressed) {
       set({ reconstructTargetId: null });
     }
@@ -184,13 +187,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       selectedQuestionId: id,
       selectedAnnotationId: id,
+      selectedLocIndex: null,
       selectedAnnotationType: id ? 'question' : null,
     }),
 
-  selectAnnotation: (id, type) =>
+  selectAnnotation: (id, type, locIndex) =>
     set((state) => {
       const newState: Partial<AppState> = {
         selectedAnnotationId: id,
+        selectedLocIndex: locIndex ?? null,
         selectedAnnotationType: type,
       };
       
@@ -539,6 +544,37 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
     saveToLocalStorage(newData);
     get().showToast(targetQIndex !== -1 ? '已追加到新题目' : '已重构为新题目');
+  },
+
+  deleteQuestionLocation: (questionId, locIndex) => {
+    const { examData, selectedQuestionId } = get();
+    const newLabels = [...examData.labels];
+    const qIndex = newLabels.findIndex((q) => q.question_id === questionId);
+    if (qIndex === -1) return;
+
+    const originalQ = { ...newLabels[qIndex] };
+    originalQ.location = originalQ.location.filter((_, i) => i !== locIndex);
+
+    // 如果删除了最后一个框，且没有答案/批改，则删除整题
+    if (originalQ.location.length === 0 && originalQ.answer.length === 0 && originalQ.correct.length === 0) {
+      newLabels.splice(qIndex, 1);
+      set({
+        selectedQuestionId: selectedQuestionId === questionId ? null : selectedQuestionId,
+        selectedAnnotationId: null,
+        selectedLocIndex: null,
+        selectedAnnotationType: null,
+      });
+    } else {
+      newLabels[qIndex] = originalQ;
+      set({
+        selectedAnnotationId: null,
+        selectedLocIndex: null,
+      });
+    }
+
+    const newData = { ...examData, labels: newLabels };
+    set({ examData: newData, hasUnsavedChanges: true });
+    saveToLocalStorage(newData);
   },
 
   deleteQuestion: (questionId) => {

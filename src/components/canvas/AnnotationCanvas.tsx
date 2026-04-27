@@ -147,13 +147,33 @@ export default function AnnotationCanvas() {
       }
 
       const keyStr = e.key.toLowerCase();
+      if (e.key === 'x' || e.key === 'X') {
+        const state = useAppStore.getState();
+        const { selectedAnnotationId, selectedAnnotationType, selectedQuestionId, selectedLocIndex } = state;
+        
+        if (selectedAnnotationId && selectedAnnotationType) {
+          if (selectedAnnotationType === 'question') {
+            if (selectedLocIndex !== null) {
+              state.deleteQuestionLocation(selectedAnnotationId, selectedLocIndex);
+            } else {
+              state.deleteQuestion(selectedAnnotationId);
+            }
+          } else if (selectedAnnotationType === 'answer' && selectedQuestionId) {
+            state.deleteAnswer(selectedQuestionId, selectedAnnotationId);
+          } else if (selectedAnnotationType === 'correction' && selectedQuestionId) {
+            state.deleteCorrection(selectedQuestionId, selectedAnnotationId);
+          }
+          state.showToast('已删除选中的标注');
+        }
+      }
+
       if (e.code === 'Space') {
         setLocalActiveKey('space');
       } else if (keyStr === 'control' || keyStr === 'meta') {
         setLocalActiveKey('ctrl');
-      } else if (keyStr === 't') {
-        setLocalActiveKey('t');
-        useAppStore.getState().setTPressed(true);
+      } else if (keyStr === 'w') {
+        setLocalActiveKey('w');
+        useAppStore.getState().setWPressed(true);
       } else {
         setLocalActiveKey(keyStr);
       }
@@ -243,9 +263,9 @@ export default function AnnotationCanvas() {
         setLocalActiveKey((prev) => prev === 'space' ? null : prev);
       } else if (keyStr === 'control' || keyStr === 'meta') {
         setLocalActiveKey((prev) => prev === 'ctrl' ? null : prev);
-      } else if (keyStr === 't') {
-        setLocalActiveKey((prev) => prev === 't' ? null : prev);
-        useAppStore.getState().setTPressed(false);
+      } else if (keyStr === 'w') {
+        setLocalActiveKey((prev) => prev === 'w' ? null : prev);
+        useAppStore.getState().setWPressed(false);
       } else {
         setLocalActiveKey((prev) => prev === keyStr ? null : prev);
       }
@@ -320,7 +340,8 @@ export default function AnnotationCanvas() {
         <div className={`hotkey-item ${activeKey === '1' ? 'active' : ''}`}><kbd>1</kbd> <span className="text-blue-400">题目</span></div>
         <div className={`hotkey-item ${activeKey === '2' ? 'active' : ''}`}><kbd>2</kbd> <span className="text-emerald-400">答案</span></div>
         <div className={`hotkey-item ${activeKey === '3' ? 'active' : ''}`}><kbd>3</kbd> <span className="text-orange-400">批改</span></div>
-        <div className={`hotkey-item ${activeKey === 't' ? 'active' : ''}`}><kbd>T</kbd> <span>重构为新题</span></div>
+        <div className={`hotkey-item ${activeKey === 'w' ? 'active' : ''}`}><kbd>W</kbd> <span>重构为新题</span></div>
+        <div className={`hotkey-item ${activeKey === 'x' ? 'active' : ''}`}><kbd>X</kbd> <span>删除选中</span></div>
         <div className={`hotkey-item ${activeKey === 'e' ? 'active' : ''}`}><kbd>E</kbd> <span>旋转</span></div>
         <div className={`hotkey-item ${activeKey === 'r' ? 'active' : ''}`}><kbd>R</kbd> <span>撤销</span></div>
         {(isFeishuEnv || useAppStore.getState().isOpenApiMode) && (
