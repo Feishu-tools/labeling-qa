@@ -461,54 +461,75 @@ export default function PageImage({ image, index }: PageImageProps) {
                 .map(p => (
                   <g key={`edit-${p.id}-${p.locIndex}`}>
                     {p.polygon.map((pt, i) => (
-                      <circle
-                        key={`pt-${i}`}
-                        cx={pt[0]}
-                        cy={pt[1]}
-                        r={4}
-                        fill="white"
-                        stroke={ANNOTATION_COLORS_SELECTED[p.type].stroke}
-                        strokeWidth={2}
-                        vectorEffect="non-scaling-stroke"
-                        style={{ cursor: 'move', pointerEvents: 'all' }}
-                        onPointerDown={(e) => {
-                          e.stopPropagation();
-                          try { e.currentTarget.setPointerCapture(e.pointerId); } catch(e) {}
-                          setDraggedPointInfo({
-                            id: p.id,
-                            type: p.type,
-                            locIndex: p.locIndex,
-                            pointIndex: i
-                          });
-                        }}
-                      />
+                      <g key={`pt-${i}`}>
+                        {/* 视觉上的小圆点 */}
+                        <circle
+                          cx={pt[0]}
+                          cy={pt[1]}
+                          r={4}
+                          fill="white"
+                          stroke={ANNOTATION_COLORS_SELECTED[p.type].stroke}
+                          strokeWidth={2}
+                          vectorEffect="non-scaling-stroke"
+                          style={{ pointerEvents: 'none' }}
+                        />
+                        {/* 透明的大圆圈，用来增大点击触发范围 */}
+                        <circle
+                          cx={pt[0]}
+                          cy={pt[1]}
+                          r={30}
+                          fill="transparent"
+                          style={{ cursor: 'move', pointerEvents: 'all' }}
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            try { e.currentTarget.setPointerCapture(e.pointerId); } catch(e) {}
+                            setDraggedPointInfo({
+                              id: p.id,
+                              type: p.type,
+                              locIndex: p.locIndex,
+                              pointIndex: i
+                            });
+                          }}
+                        />
+                      </g>
                     ))}
                     {insertPointInfo && insertPointInfo.id === p.id && insertPointInfo.locIndex === p.locIndex && (
-                      <circle
-                        cx={insertPointInfo.point[0]}
-                        cy={insertPointInfo.point[1]}
-                        r={4}
-                        fill="white"
-                        stroke={ANNOTATION_COLORS_SELECTED[p.type].stroke}
-                        strokeWidth={2}
-                        vectorEffect="non-scaling-stroke"
-                        strokeDasharray="2 2"
-                        style={{ cursor: 'pointer', pointerEvents: 'all' }}
-                        onPointerDown={(e) => {
-                          e.stopPropagation();
-                          try { e.currentTarget.setPointerCapture(e.pointerId); } catch(e) {}
-                          const newPolygon = [...p.polygon];
-                          newPolygon.splice(insertPointInfo.insertIndex, 0, insertPointInfo.point);
-                          updateAnnotationPolygon(p.id, p.type, p.locIndex, newPolygon, false);
-                          setDraggedPointInfo({
-                            id: p.id,
-                            type: p.type,
-                            locIndex: p.locIndex,
-                            pointIndex: insertPointInfo.insertIndex
-                          });
-                          setInsertPointInfo(null);
-                        }}
-                      />
+                      <g>
+                        {/* 视觉上的虚线圆点 */}
+                        <circle
+                          cx={insertPointInfo.point[0]}
+                          cy={insertPointInfo.point[1]}
+                          r={4}
+                          fill="white"
+                          stroke={ANNOTATION_COLORS_SELECTED[p.type].stroke}
+                          strokeWidth={2}
+                          vectorEffect="non-scaling-stroke"
+                          strokeDasharray="2 2"
+                          style={{ pointerEvents: 'none' }}
+                        />
+                        {/* 透明的大圆圈，用来增大点击触发范围 */}
+                        <circle
+                          cx={insertPointInfo.point[0]}
+                          cy={insertPointInfo.point[1]}
+                          r={12}
+                          fill="transparent"
+                          style={{ cursor: 'pointer', pointerEvents: 'all' }}
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            try { e.currentTarget.setPointerCapture(e.pointerId); } catch(e) {}
+                            const newPolygon = [...p.polygon];
+                            newPolygon.splice(insertPointInfo.insertIndex, 0, insertPointInfo.point);
+                            updateAnnotationPolygon(p.id, p.type, p.locIndex, newPolygon, false);
+                            setDraggedPointInfo({
+                              id: p.id,
+                              type: p.type,
+                              locIndex: p.locIndex,
+                              pointIndex: insertPointInfo.insertIndex
+                            });
+                            setInsertPointInfo(null);
+                          }}
+                        />
+                      </g>
                     )}
                   </g>
                 ))}

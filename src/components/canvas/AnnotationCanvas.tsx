@@ -336,7 +336,7 @@ export default function AnnotationCanvas() {
     <div className="canvas-area" id="canvas-area" style={{ position: 'relative' }}>
       {/* 快捷键提示组件 */}
       <div className="hotkey-hint-overlay">
-        <div className={`hotkey-item ${activeKey === 'space' ? 'active' : ''}`}><kbd>Space</kbd> <span>新题</span></div>
+        <div className={`hotkey-item ${activeKey === 'space' ? 'active' : ''}`}><kbd>Space</kbd> <span>保存题目</span></div>
         <div className={`hotkey-item ${activeKey === '1' ? 'active' : ''}`}><kbd>1</kbd> <span className="text-blue-400">题目</span></div>
         <div className={`hotkey-item ${activeKey === '2' ? 'active' : ''}`}><kbd>2</kbd> <span className="text-emerald-400">答案</span></div>
         <div className={`hotkey-item ${activeKey === '3' ? 'active' : ''}`}><kbd>3</kbd> <span className="text-orange-400">批改</span></div>
@@ -345,7 +345,7 @@ export default function AnnotationCanvas() {
         <div className={`hotkey-item ${activeKey === 'e' ? 'active' : ''}`}><kbd>E</kbd> <span>旋转</span></div>
         <div className={`hotkey-item ${activeKey === 'r' ? 'active' : ''}`}><kbd>R</kbd> <span>撤销</span></div>
         {(isFeishuEnv || useAppStore.getState().isOpenApiMode) && (
-          <div className={`hotkey-item ${activeKey === 's' ? 'active' : ''}`}><kbd>S</kbd> <span>保存并下一题</span></div>
+          <div className={`hotkey-item ${activeKey === 's' ? 'active' : ''}`}><kbd>S</kbd> <span>保存并下一套</span></div>
         )}
       </div>
 
