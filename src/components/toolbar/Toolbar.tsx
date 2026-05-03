@@ -6,6 +6,7 @@ import { useAppStore } from '../../store';
 import { importFromJsonFile, exportToJsonFile } from '../../utils/storage';
 import type { AnnotationMode } from '../../types';
 import { parseFeishuUrl, fetchFeishuRecords } from '../../utils/feishu_open_api';
+import { ModelImportModal } from './ModelImportModal';
 import {
   MousePointer2,
   FileText,
@@ -25,6 +26,7 @@ import {
   Save,
   Check,
   Link,
+  Bot,
 } from 'lucide-react';
 
 const modeConfig: {
@@ -86,10 +88,16 @@ export default function Toolbar() {
     feishuAppId,
     feishuAppSecret,
     setFeishuOpenApiState,
+    isModelImportMode,
+    modelImportDataList,
+    modelImportCurrentIndex,
+    nextModelImportData,
+    prevModelImportData,
   } = useAppStore();
 
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showModelModal, setShowModelModal] = useState(false);
 
   const handleConnectOpenApi = async () => {
     if (!url) {
@@ -251,6 +259,33 @@ export default function Toolbar() {
       {/* 右侧操作 */}
       <div className="toolbar-spacer" />
 
+      {isModelImportMode && (
+        <div className="toolbar-group">
+          <div className="toolbar-zoom-controls">
+            <button
+              className="toolbar-icon-btn"
+              onClick={prevModelImportData}
+              disabled={modelImportCurrentIndex <= 0}
+              title="上一套试卷"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="toolbar-zoom-value" style={{ width: 60, textAlign: 'center' }}>
+              {modelImportDataList.length > 0 ? `${modelImportCurrentIndex + 1} / ${modelImportDataList.length}` : '-'}
+            </span>
+            <button
+              className="toolbar-icon-btn"
+              onClick={nextModelImportData}
+              disabled={modelImportCurrentIndex >= modelImportDataList.length - 1}
+              title="下一套试卷"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+          <div className="toolbar-divider" />
+        </div>
+      )}
+
       {isFeishuEnv ? (
         <div className="toolbar-group">
           <div className="toolbar-zoom-controls">
@@ -314,6 +349,10 @@ export default function Toolbar() {
             </button>
           </div>
           
+          <button className="toolbar-action-btn" onClick={() => setShowModelModal(true)}>
+            <Bot size={15} />
+            <span>导入模型数据</span>
+          </button>
           <button className="toolbar-action-btn" onClick={handleImport}>
             <Upload size={15} />
             <span>导入</span>
@@ -328,6 +367,7 @@ export default function Toolbar() {
           </button>
         </div>
       )}
+      {showModelModal && <ModelImportModal onClose={() => setShowModelModal(false)} />}
     </header>
   );
 }

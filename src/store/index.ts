@@ -57,8 +57,17 @@ interface AppState {
   feishuAppToken: string;
   feishuRecords: any[]; // 存储通过 OpenAPI 获取的记录列表
 
+  // ---- 本地模型导入状态 ----
+  isModelImportMode: boolean;
+  modelImportDataList: ExamData[];
+  modelImportCurrentIndex: number;
+
   // ---- Actions ----
   loadExamData: (data: ExamData) => void;
+  mergeExamData: (data: ExamData) => void;
+  loadModelImportData: (dataList: ExamData[]) => void;
+  nextModelImportData: () => void;
+  prevModelImportData: () => void;
   initFromStorage: () => boolean;
   setFeishuState: (state: Partial<{ isFeishuEnv: boolean, feishuRecordIds: string[], feishuCurrentIndex: number, feishuTableId: string }>) => void;
   setFeishuOpenApiState: (state: Partial<{ isOpenApiMode: boolean, feishuAppId: string, feishuAppSecret: string, feishuAppToken: string, feishuRecords: any[] }>) => void;
@@ -147,12 +156,79 @@ export const useAppStore = create<AppState>((set, get) => ({
   feishuAppToken: '',
   feishuRecords: [],
 
+  isModelImportMode: false,
+  modelImportDataList: [],
+  modelImportCurrentIndex: 0,
+
   // ---- Actions ----
 
   loadExamData: (data) => {
     set({ examData: data, hasUnsavedChanges: false });
     saveToLocalStorage(data);
   },
+
+  loadModelImportData: (dataList) => {
+    if (dataList.length > 0) {
+      set({
+        isModelImportMode: true,
+        modelImportDataList: dataList,
+        modelImportCurrentIndex: 0,
+        examData: dataList[0],
+        hasUnsavedChanges: false,
+        undoHistory: []
+      });
+    }
+  },
+
+  nextModelImportData: () => set((state) => {
+    if (!state.isModelImportMode || state.modelImportCurrentIndex >= state.modelImportDataList.length - 1) return {};
+    const nextIndex = state.modelImportCurrentIndex + 1;
+    return {
+      modelImportCurrentIndex: nextIndex,
+      examData: state.modelImportDataList[nextIndex],
+      hasUnsavedChanges: false,
+      undoHistory: []
+    };
+  }),
+
+  prevModelImportData: () => set((state) => {
+    if (!state.isModelImportMode || state.modelImportCurrentIndex <= 0) return {};
+    const prevIndex = state.modelImportCurrentIndex - 1;
+    return {
+      modelImportCurrentIndex: prevIndex,
+      examData: state.modelImportDataList[prevIndex],
+      hasUnsavedChanges: false,
+      undoHistory: []
+    };
+  }),
+
+  mergeExamData: (data) => set((state) => {
+    const newImages = [...state.examData.images];
+    // 为了防止图片重复，如果有相同 URL 或者 ID，可以考虑过滤，这里简单地全部追加
+    const existingUrls = new Set(state.examData.images.map(img => img.url));
+    const addedImagesMap = new Map<string, string>(); // oldId -> newId (if needed)
+
+    data.images.forEach(img => {
+      if (!existingUrls.has(img.url)) {
+        newImages.push(img);
+        existingUrls.add(img.url);
+      }
+    });
+
+    const newLabels = [...state.examData.labels, ...data.labels];
+
+    const newData = {
+      images: newImages,
+      labels: newLabels,
+    };
+
+    saveToLocalStorage(newData);
+    return {
+      examData: newData,
+      hasUnsavedChanges: true,
+      undoHistory: [...state.undoHistory, state.examData].slice(-20),
+    };
+  }),
 
   initFromStorage: () => {
     const data = loadFromLocalStorage();
