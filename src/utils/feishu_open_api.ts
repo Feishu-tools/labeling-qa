@@ -75,6 +75,7 @@ export const getFeishuRecord = async (config: FeishuOpenApiConfig, recordId: str
   if (data.code !== 0) {
     throw new Error(`[Feishu OpenAPI] get record error: ${data.msg}`);
   }
+  console.log('【飞书获取记录】:', data.data.record);
   return data.data.record;
 };
 
@@ -96,6 +97,8 @@ export const updateFeishuRecord = async (config: FeishuOpenApiConfig, recordId: 
   if (data.code !== 0) {
     throw new Error(`[Feishu OpenAPI] update record error: ${data.msg}`);
   }
+  console.log('【飞书更新记录】:', data);
+  // console.log('【飞书更新记录】:', JSON.parse(data.data.record.fields.输出json));
   return data.data;
 };
 

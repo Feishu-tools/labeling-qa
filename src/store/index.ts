@@ -785,6 +785,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { examData } = get();
     saveToLocalStorage(examData);
     set({ hasUnsavedChanges: false });
+    console.log('【自动保存数据】:', examData);
   },
 
   handleSaveFeishuData: async (isComplete: boolean = false) => {
@@ -806,19 +807,33 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       showToast('正在保存...');
       
+      // 生成用于保存的瘦身版 JSON：
+      // 1. 去除格式化缩进 (使用 JSON.stringify(..., null, 0) 或者直接省略)
+      // 2. 去掉 images 数组中冗长的 url (Base64 数据)
+      const dataToSave = {
+        ...examData,
+        images: examData.images.map(img => ({
+          ...img,
+          url: img.url.startsWith('data:image') ? undefined : img.url
+        }))
+      };
+      const compactJsonString = JSON.stringify(dataToSave);
+      
       if (isOpenApiMode) {
         // 使用 OpenAPI 保存
+        console.log('【飞书保存数据】:', examData);
+
         await updateFeishuRecord(
           { appId: feishuAppId, appSecret: feishuAppSecret, appToken: feishuAppToken, tableId: feishuTableId },
           currentId,
           {
-            '输出json': JSON.stringify(examData, null, 4),
+            '输出json': compactJsonString,
             '标注状态': isComplete ? '已标注' : '标注中',
           }
         );
       } else {
         // 使用小组件 SDK 保存
-        await writeDataToField(JSON.stringify(examData, null, 4), {
+        await writeDataToField(compactJsonString, {
           fieldName: '输出json',
           useCurrentSelection: false,
           tableId: feishuTableId,
@@ -834,13 +849,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       showToast(isComplete ? '保存成功并标记完成' : '保存成功');
-      
-      if (isComplete) {
-        await get().handleNextFeishuRow();
+
+      // 如果勾选了完成，则自动跳下一题
+      if (isComplete && feishuCurrentIndex < feishuRecordIds.length - 1) {
+        get().handleNextFeishuRow();
       }
-    } catch (e) {
-      console.error(e);
-      showToast('保存失败');
+    } catch (error: any) {
+      console.error(error);
+      showToast('保存失败：' + error.message);
     }
   },
 
